@@ -1,0 +1,2965 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Manager Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF & AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background-color: #f8fafc; color: #1e293b; display: flex; height: 100vh; overflow: hidden; }
+
+    .sidebar { width: 280px; background: #1e293b; color: #fff; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 24px 20px; font-size: 1.2rem; font-weight: 700; color: #38bdf8; border-bottom: 1px solid #334155; }
+    .nav-list { list-style: none; padding: 15px 10px; flex-grow: 1; overflow-y: auto; }
+    .nav-item { padding: 12px 16px; margin-bottom: 6px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 0.95rem; color: #94a3b8; transition: all 0.2s ease; user-select: none; }
+    .nav-item:hover { background: #334155; color: #fff; }
+    .nav-item.active { background: #0284c7; color: #fff; font-weight: 600; }
+
+    .main-content { flex-grow: 1; padding: 24px; overflow-y: auto; }
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+
+    .section-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; margin-bottom: 25px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .section-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; display: flex; justify-between: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+
+    form.grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 25px; }
+    input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.95rem; outline: none; }
+    input:focus, select:focus { border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15); }
+    button.btn-primary { background: #1a73e8; color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    button.btn-primary:hover { background: #1557b0; }
+
+    .table-container { overflow-x: auto; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 8px; overflow: hidden; white-space: nowrap; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.88rem; }
+    th { background: #f8f9fa; color: #555; font-weight: 600; }
+    .amount-income { color: #2e7d32; font-weight: bold; }
+    .amount-expense { color: #c62828; font-weight: bold; }
+    .amount-remaining { color: #d97706; font-weight: bold; }
+    
+    .btn-edit { background: #f59e0b; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-right: 4px; }
+    .btn-edit:hover { background: #d97706; }
+    .btn-delete { background: #ff4d4d; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; }
+    .btn-delete:hover { background: #cc0000; }
+    .btn-view { background: #0284c7; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-right: 4px; }
+    .btn-view:hover { background: #0369a1; }
+
+    .dashboard-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
+    .card-stat { padding: 15px; border-radius: 8px; text-align: center; color: #fff; }
+    .card-stat.balance { background: #1a73e8; }
+    .card-stat.income { background: #2e7d32; }
+    .card-stat.expense { background: #c62828; }
+    .card-stat.bank { background: #0284c7; }
+    .card-stat.invest { background: #0d9488; }
+    .card-stat.recurring { background: #8b5cf6; }
+    .card-stat h3 { font-size: 0.9rem; font-weight: 500; margin-bottom: 5px; opacity: 0.9; }
+    .card-stat p { font-size: 1.5rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN CONTAINER -->
+  <div id="login-screen" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-[100]">
+    <div class="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl border border-slate-100">
+      <div class="text-center mb-8">
+        <div class="inline-flex p-3 bg-sky-50 text-sky-600 rounded-2xl mb-3">
+          <i data-lucide="shield-check" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-slate-800" data-i18n="login_heading">Financial Management</h2>
+        <p class="text-sm text-slate-500 mt-1" data-i18n="login_subheading">Please sign in to access your dashboard</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="space-y-5">
+        <div id="login-error" class="hidden p-3 bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold rounded-lg text-center" data-i18n="login_err">
+          Invalid Login ID or Password.
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-2" data-i18n="login_id_label">Login ID</label>
+          <input type="text" id="login-id" placeholder="Enter Login ID" data-i18n-ph="login_id_ph" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-sky-500 transition">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase mb-2" data-i18n="login_pass_label">Password</label>
+          <input type="password" id="login-password" placeholder="Enter Password" data-i18n-ph="login_pass_ph" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-sky-500 transition">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl transition shadow-lg shadow-sky-600/20" data-i18n="login_btn">
+          Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP CONTAINER (HIDDEN UNTIL LOGIN) -->
+  <div id="app-screen" class="flex w-full h-full hidden">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header" data-i18n="sidebar_title">Vinay Asset Details</div>
+      <ul class="nav-list">
+        <li class="nav-item active" onclick="switchTab('dashboard-page', this)" data-i18n="nav_dashboard">📊 Overview Dashboard</li>
+        <li class="nav-item" onclick="switchTab('bank-page', this)" data-i18n="nav_bank">🏦 Bank Balances & Ledger</li>
+        <li class="nav-item" onclick="switchTab('tracker-page', this)" data-i18n="nav_tracker">💵 Income & Expense Tracker</li>
+        <li class="nav-item" onclick="switchTab('investment-page', this)" data-i18n="nav_investment">📈 Investments & Maturity</li>
+        <li class="nav-item" id="nav-lending" onclick="switchTab('lending-page', this)" data-i18n="nav_lending">🤝 Borrower Details</li>
+        <li class="nav-item" onclick="switchTab('borrowing-page', this)" data-i18n="nav_borrowing">💳 Borrowing Details</li>
+        <li class="nav-item" onclick="switchTab('recurring-page', this)" data-i18n="nav_recurring">🔄 Recurring Expenditure</li>
+      </ul>
+      <div class="p-4 border-t border-slate-700">
+        <button onclick="handleLogout()" class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-rose-600/10 hover:bg-rose-600 text-rose-400 hover:text-white rounded-xl text-sm font-semibold transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i> <span data-i18n="nav_logout">Logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- WELCOME HEADER BANNER & LANGUAGE SWITCHER -->
+      <div class="bg-gradient-to-r from-sky-600 to-indigo-600 text-white px-6 py-4 rounded-2xl shadow-sm mb-6 flex flex-wrap justify-between items-center gap-4">
+        <div>
+          <h2 class="text-xl font-bold tracking-wide" data-i18n="welcome_title">Welcome Vinay Prabhakar Mishra</h2>
+          <p class="text-xs text-sky-100 mt-0.5" data-i18n="welcome_sub">ALIO, UPSC | Contact: 7701940276 | Email: vinay.pravaker@gmail.com</p>
+        </div>
+        
+        <!-- BILINGUAL LANGUAGE SELECTOR -->
+        <div class="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20">
+          <i data-lucide="languages" class="w-4 h-4 text-white"></i>
+          <label for="languageSelect" class="text-xs font-semibold text-white uppercase tracking-wider" data-i18n="lang_label">Language:</label>
+          <select id="languageSelect" onchange="changeLanguage(this.value)" class="bg-white text-slate-800 text-xs font-bold px-2 py-1 rounded-lg border-0 focus:ring-2 focus:ring-sky-300 outline-none cursor-pointer">
+            <option value="en">English</option>
+            <option value="hi">हिंदी (Hindi)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- PAGE 1: OVERVIEW DASHBOARD -->
+      <div id="dashboard-page" class="page-section active space-y-6">
+        <div id="reminder-ticker" class="hidden bg-amber-500 text-white px-4 py-2.5 rounded-xl shadow-md flex items-center gap-3 overflow-hidden">
+          <div class="flex items-center gap-2 font-bold text-xs uppercase bg-amber-700 px-2.5 py-1 rounded-lg shrink-0">
+            <i data-lucide="bell-ring" class="w-4 h-4 animate-bounce"></i> <span data-i18n="due_reminder">Due Reminder</span>
+          </div>
+          <marquee id="reminder-marquee" class="text-sm font-semibold tracking-wide" behavior="scroll" direction="left" scrollamount="6"></marquee>
+        </div>
+
+        <header class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900" data-i18n="dash_header_title">Overview Dashboard</h1>
+            <p class="text-sm text-slate-500 flex items-center gap-2 mt-1">
+              <i data-lucide="calendar-clock" class="w-4 h-4 text-slate-400"></i>
+              <span data-i18n="current_datetime">Current Date & Time:</span> <span id="liveDateTime" class="font-mono font-medium text-slate-700">--</span>
+            </p>
+          </div>
+
+          <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
+              <button onclick="exportCSV()" class="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-xl font-medium text-sm transition">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> <span data-i18n="btn_export_csv">Export CSV</span>
+              </button>
+              <button onclick="exportPDF()" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-medium text-sm shadow-sm transition">
+                <i data-lucide="file-text" class="w-4 h-4"></i> <span data-i18n="btn_export_pdf">Export PDF</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- QUICK LINKS SECTION -->
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3" data-i18n="quick_links_title">Quick Financial Links</h2>
+          <div class="flex flex-wrap gap-3">
+            <a href="https://pli.indiapost.gov.in/CustomerPortal/Home.action/" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-sky-50 hover:text-sky-600 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> PLI (Postal Life Insurance)
+            </a>
+            <a href="https://groww.in/" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-600 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Groww
+            </a>
+            <a href="https://canarabank.com/" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Canara Bank
+            </a>
+            <a href="https://punjabandsind.bank.in/" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Punjab & Sind Bank
+            </a>
+          </div>
+        </section>
+
+        <section class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-6 w-full sm:w-auto">
+            <div class="flex items-center gap-2">
+              <label for="timeFilter" class="text-xs font-semibold uppercase tracking-wider text-slate-500" data-i18n="period_label">Period:</label>
+              <select id="timeFilter" onchange="renderOverview()" class="bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5 font-medium">
+                <option value="all" data-i18n="opt_all_time">All Time</option>
+                <option value="weekly" data-i18n="opt_weekly">Weekly (Last 7 Days)</option>
+                <option value="monthly" data-i18n="opt_monthly">Monthly (Current Month)</option>
+                <option value="quarterly" data-i18n="opt_quarterly">Quarterly (Current Quarter)</option>
+                <option value="annually" data-i18n="opt_annually">Annually (Current Year)</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <label for="typeFilter" class="text-xs font-semibold uppercase tracking-wider text-slate-500" data-i18n="filter_by_label">Filter By:</label>
+              <select id="typeFilter" onchange="renderOverview()" class="bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 p-2.5 font-medium">
+                <option value="all" data-i18n="opt_all_types">All Types</option>
+                <option value="income" data-i18n="opt_credit">Credit</option>
+                <option value="expense" data-i18n="opt_expense">Expenses / Expenditure</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Performance Summary Cards -->
+        <section class="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="stat_tot_bank">Total Bank Balance</p>
+                <h3 id="dash-total-bank" class="text-2xl font-extrabold text-sky-600 mt-2">₹0.00</h3>
+              </div>
+              <div class="p-2.5 bg-sky-50 rounded-xl text-sky-600"><i data-lucide="building-2" class="w-5 h-5"></i></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="stat_tot_credit">Total Credit</p>
+                <h3 id="dash-income" class="text-2xl font-extrabold text-emerald-600 mt-2">₹0.00</h3>
+              </div>
+              <div class="p-2.5 bg-emerald-50 rounded-xl text-emerald-600"><i data-lucide="arrow-down-left" class="w-5 h-5"></i></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="stat_tot_exp">Total Expenses</p>
+                <h3 id="dash-expenses" class="text-2xl font-extrabold text-rose-600 mt-2">₹0.00</h3>
+              </div>
+              <div class="p-2.5 bg-rose-50 rounded-xl text-rose-600"><i data-lucide="arrow-up-right" class="w-5 h-5"></i></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="stat_tot_expenditure">Total Expenditure</p>
+                <h3 id="dash-expenditure" class="text-2xl font-extrabold text-amber-600 mt-2">₹0.00</h3>
+              </div>
+              <div class="p-2.5 bg-amber-50 rounded-xl text-amber-600"><i data-lucide="receipt" class="w-5 h-5"></i></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="stat_net_bal">Net Balance</p>
+                <h3 id="dash-balance" class="text-2xl font-extrabold text-slate-900 mt-2">₹0.00</h3>
+              </div>
+              <div class="p-2.5 bg-indigo-50 rounded-xl text-indigo-600"><i data-lucide="wallet" class="w-5 h-5"></i></div>
+            </div>
+          </div>
+
+          <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500" data-i18n="stat_tot_wealth">Total Combined Wealth</p>
+                <h3 id="dash-combined-total" class="text-2xl font-extrabold text-violet-600 mt-2">₹0.00</h3>
+              </div>
+              <div class="p-2.5 bg-violet-50 rounded-xl text-violet-600"><i data-lucide="coins" class="w-5 h-5"></i></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-gradient-to-r from-blue-600 to-blue-700 p-4 rounded-xl text-white shadow-sm cursor-pointer" onclick="switchTabByTarget('tracker-page')">
+            <p class="text-xs uppercase opacity-80 font-medium" data-i18n="card_tracker_bal">Tracker Balance</p>
+            <p id="dash-bank" class="text-xl font-bold mt-1">₹0.00</p>
+          </div>
+          <div class="bg-gradient-to-r from-teal-600 to-teal-700 p-4 rounded-xl text-white shadow-sm cursor-pointer" onclick="switchTabByTarget('investment-page')">
+            <p class="text-xs uppercase opacity-80 font-medium" data-i18n="card_tot_invested">Total Invested</p>
+            <p id="dash-invested" class="text-xl font-bold mt-1">₹0.00</p>
+          </div>
+          <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 p-4 rounded-xl text-white shadow-sm cursor-pointer" onclick="switchTabByTarget('investment-page')">
+            <p class="text-xs uppercase opacity-80 font-medium" data-i18n="card_est_mat">Est. Maturity Value</p>
+            <p id="dash-maturity" class="text-xl font-bold mt-1">₹0.00</p>
+          </div>
+          <div class="bg-gradient-to-r from-amber-600 to-amber-700 p-4 rounded-xl text-white shadow-sm cursor-pointer" onclick="switchTabByTarget('lending-page')">
+            <p class="text-xs uppercase opacity-80 font-medium" data-i18n="card_rem_karj">Remaining Karj Receivable</p>
+            <p id="dash-lending" class="text-xl font-bold mt-1">₹0.00</p>
+          </div>
+        </section>
+
+        <section class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-base font-bold text-slate-900 mb-4" data-i18n="chart_title">Financial Overview Summary</h2>
+          <div class="relative h-64 w-full">
+            <canvas id="overviewChart"></canvas>
+          </div>
+        </section>
+      </div>
+
+      <!-- PAGE 2: BANK BALANCES & DETAILED CREDIT/DEBIT TRANSACTION LEDGER -->
+      <div id="bank-page" class="page-section">
+        <div class="section-box">
+          <div class="section-title">
+            <span data-i18n="bank_title">🏦 Bank Accounts & Credit/Debit Ledger</span>
+            <button onclick="exportBankPDF()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span data-i18n="btn_export_bank_pdf">Export Bank Statement PDF</span>
+            </button>
+          </div>
+          
+          <div class="dashboard-cards">
+            <div class="card-stat balance">
+              <h3 data-i18n="stat_tot_bank_bal">Total Bank Balance</h3>
+              <p id="total-bank-balance">₹0.00</p>
+            </div>
+            <div class="card-stat income">
+              <h3 data-i18n="stat_tot_acc">Total Accounts</h3>
+              <p id="total-bank-count">0</p>
+            </div>
+            <div class="card-stat expense">
+              <h3 data-i18n="stat_tot_tx_logged">Total Transactions Logged</h3>
+              <p id="total-bank-tx-count">0</p>
+            </div>
+          </div>
+
+          <h4 class="text-sm font-bold text-slate-700 mb-2" data-i18n="add_bank_sub">1. Add New Bank Account</h4>
+          <form id="bank-form" class="grid-form">
+            <input type="text" id="bank-name" placeholder="Bank Name (e.g., SBI, HDFC)" data-i18n-ph="bank_name_ph" required>
+            <input type="number" id="bank-balance" placeholder="Opening Balance (₹)" data-i18n-ph="bank_bal_ph" step="0.01" min="0" required>
+            <button type="submit" class="btn-primary" style="background: #0284c7;" data-i18n="btn_add_bank">Add Bank Account</button>
+          </form>
+
+          <div class="table-container mb-8">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_bank_name">Bank Name</th>
+                  <th data-i18n="th_curr_bal">Current Balance</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="bank-list"></tbody>
+            </table>
+          </div>
+
+          <hr class="my-6 border-slate-200">
+
+          <h4 class="text-sm font-bold text-slate-700 mb-2" data-i18n="log_bank_tx_sub">2. Log Bank Credit / Debit Entry</h4>
+          <form id="bank-tx-form" class="grid-form">
+            <select id="bank-tx-account" required>
+              <option value="" data-i18n="opt_sel_bank">-- Select Bank Account --</option>
+            </select>
+            <input type="date" id="bank-tx-date" required>
+            <select id="bank-tx-type" required>
+              <option value="credit" data-i18n="opt_credit_dep">Credit (+ Deposit)</option>
+              <option value="debit" data-i18n="opt_debit_with">Debit (- Withdrawal)</option>
+            </select>
+            <input type="number" id="bank-tx-amount" placeholder="Amount (₹)" data-i18n-ph="amount_ph" step="0.01" min="0.01" required>
+            <input type="text" id="bank-tx-remarks" placeholder="Remarks / Details" data-i18n-ph="remarks_ph" required>
+            <button type="submit" class="btn-primary" style="background: #059669;" data-i18n="btn_log_entry">Log Entry</button>
+          </form>
+
+          <h4 class="text-sm font-bold text-slate-700 mb-2" data-i18n="tx_entries_sub">3. Detailed Bank Transaction Entries</h4>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_date">Date</th>
+                  <th data-i18n="th_bank_acc">Bank Account</th>
+                  <th data-i18n="th_type">Type</th>
+                  <th data-i18n="th_amount">Amount</th>
+                  <th data-i18n="th_remarks">Remarks / Details</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="bank-tx-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 3: INCOME & EXPENSE TRACKER -->
+      <div id="tracker-page" class="page-section">
+        <div class="section-box">
+          <div class="section-title">
+            <span data-i18n="tracker_title">💵 Income & Expense Tracker</span>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_filter_type">Filter Type:</label>
+                <select id="tracker-report-type" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                  <option value="all" data-i18n="opt_all_tx">All Transactions</option>
+                  <option value="income" data-i18n="opt_inc_only">Income Only</option>
+                  <option value="expense" data-i18n="opt_exp_only">Expense Only</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_dur_filter">Duration Filter:</label>
+                <select id="tracker-report-period" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg">
+                  <option value="all" data-i18n="opt_all_time">All Time</option>
+                  <option value="monthly" data-i18n="opt_monthly">Monthly (Current Month)</option>
+                  <option value="quarterly" data-i18n="opt_quarterly">Quarterly (Current Quarter)</option>
+                  <option value="half-yearly" data-i18n="opt_half_yearly">Half-Yearly (Last 6 Months)</option>
+                  <option value="yearly" data-i18n="opt_annually">Yearly (Current Year)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button onclick="exportTrackerCSV()" class="px-3 py-2 bg-emerald-600 text-white text-xs rounded-lg font-semibold hover:bg-emerald-700 flex items-center gap-1">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> <span data-i18n="btn_export_csv">Export CSV</span>
+              </button>
+              <button onclick="exportCustomTrackerPDF()" class="px-4 py-2 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1 shadow-sm">
+                <i data-lucide="file-text" class="w-4 h-4"></i> <span data-i18n="btn_gen_filt_pdf">Generate Filtered PDF Report</span>
+              </button>
+            </div>
+          </div>
+          
+          <div class="dashboard-cards">
+            <div class="card-stat balance">
+              <h3 data-i18n="stat_net_bal">Net Balance</h3>
+              <p id="total-balance">₹0.00</p>
+            </div>
+            <div class="card-stat income">
+              <h3 data-i18n="stat_tot_income">Total Income</h3>
+              <p id="total-income">₹0.00</p>
+            </div>
+            <div class="card-stat expense">
+              <h3 data-i18n="stat_tot_exp">Total Expense</h3>
+              <p id="total-expense">₹0.00</p>
+            </div>
+          </div>
+
+          <form id="tracker-form" class="grid-form">
+            <input type="text" id="description" placeholder="Description (e.g., Salary, Rent)" data-i18n-ph="desc_ph" required>
+            <input type="number" id="amount" placeholder="Amount (₹)" data-i18n-ph="amount_ph" step="0.01" min="0.01" required>
+            <select id="type">
+              <option value="income" data-i18n="opt_inc">Income</option>
+              <option value="expense" data-i18n="opt_exp">Expense</option>
+            </select>
+            <input type="date" id="tracker-date" required>
+            <button type="submit" class="btn-primary" data-i18n="btn_add_tx">Add Transaction</button>
+          </form>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_tx_date">Transaction Date</th>
+                  <th data-i18n="th_desc">Description</th>
+                  <th data-i18n="th_type">Type</th>
+                  <th data-i18n="th_amount">Amount</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="transaction-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 4: INVESTMENTS & MATURITY -->
+      <div id="investment-page" class="page-section">
+        <div class="section-box">
+          <div class="section-title">
+            <span data-i18n="inv_title">📈 Investment Portfolio & Annual Interest Metrics</span>
+            <button onclick="exportInvestmentPDF()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span data-i18n="btn_export_pdf_rep">Export PDF Report</span>
+            </button>
+          </div>
+
+          <div class="dashboard-cards">
+            <div class="card-stat invest">
+              <h3 data-i18n="stat_tot_inv_prin">Total Invested Principal</h3>
+              <p id="inv-total-principal">₹0.00</p>
+            </div>
+            <div class="card-stat income">
+              <h3 data-i18n="stat_tot_ann_gain">Total Annual Interest Gain (p.a.)</h3>
+              <p id="inv-total-annual-gain">₹0.00 / yr</p>
+            </div>
+            <div class="card-stat balance">
+              <h3 data-i18n="stat_est_tot_mat">Est. Total Maturity Value</h3>
+              <p id="inv-total-maturity">₹0.00</p>
+            </div>
+          </div>
+
+          <form id="investment-form" class="grid-form">
+            <input type="text" id="inv-name" placeholder="Investment Name" data-i18n-ph="inv_name_ph" required>
+            <input type="number" id="inv-principal" placeholder="Invested Principal (₹)" data-i18n-ph="inv_prin_ph" step="1" min="1" required>
+            <input type="number" id="inv-rate" placeholder="Annual Interest %" data-i18n-ph="inv_rate_ph" step="0.1" min="0" required>
+            <input type="date" id="inv-start-date" required>
+            <input type="date" id="inv-maturity-date" required>
+            <button type="submit" class="btn-primary" style="background: #0d9488;" data-i18n="btn_add_inv">Add Investment</button>
+          </form>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_inv_name">Investment Name</th>
+                  <th data-i18n="th_inv_prin">Invested Principal</th>
+                  <th data-i18n="th_ann_rate">Annual Interest Rate</th>
+                  <th data-i18n="th_est_ann_gain">Est. Annual Gain (₹)</th>
+                  <th data-i18n="th_start_date">Start Date</th>
+                  <th data-i18n="th_mat_date">Maturity Date</th>
+                  <th data-i18n="th_est_mat_val">Est. Maturity Value</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="investment-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 5: BORROWER DETAILS SECTION (KARJ DIYA) WITH ADVANCED FILTERS AND REPORT GENERATOR -->
+      <div id="lending-page" class="page-section">
+        <div class="section-box">
+          <div class="section-title">
+            <span data-i18n="lending_title">🤝 Borrower Details (Karj Diya)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="exportFilteredLendingCSV()" class="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg font-semibold hover:bg-emerald-700 flex items-center gap-1 shadow-sm">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> <span data-i18n="btn_export_csv">Export CSV</span>
+              </button>
+              <button onclick="exportFilteredLendingPDF()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1 shadow-sm">
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span data-i18n="btn_gen_filt_pdf">Generate Filtered PDF Report</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- TOP METRICS CARDS FOR BORROWERS -->
+          <div class="dashboard-cards grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="card-stat balance">
+              <h3 data-i18n="stat_tot_prin_given">Total Principal Given</h3>
+              <p id="borrower-top-principal">₹0.00</p>
+            </div>
+            <div class="card-stat expense">
+              <h3 data-i18n="stat_tot_acc_int">Total Accrued Interest</h3>
+              <p id="borrower-top-interest">₹0.00</p>
+            </div>
+            <div class="card-stat income">
+              <h3 data-i18n="stat_tot_int_coll">Total Interest Collected</h3>
+              <p id="borrower-top-rec-interest">₹0.00</p>
+            </div>
+          </div>
+
+          <!-- FILTER BAR WITH SEARCH, STATUS FILTER & DURATION FILTER -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+              <!-- Search Box -->
+              <div class="relative w-full md:w-64">
+                <label for="searchBorrowerName" class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_search_borr">Search Borrower Name:</label>
+                <div class="relative">
+                  <input type="text" id="searchBorrowerName" oninput="renderLendings()" placeholder="Type borrower name..." data-i18n-ph="search_borr_ph" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-3 py-2 font-medium focus:ring-indigo-500 focus:border-indigo-500">
+                  <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+                </div>
+              </div>
+
+              <!-- Status Filter -->
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_borr_status_filter">Payment Status:</label>
+                <select id="borrower-filter-status" onchange="renderLendings()" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="all" data-i18n="opt_all_borr_status">All Borrowers</option>
+                  <option value="pending" data-i18n="opt_borr_pending">Pending / Active Loan</option>
+                  <option value="cleared" data-i18n="opt_borr_cleared">Cleared / Fully Paid</option>
+                </select>
+              </div>
+
+              <!-- Duration Filter -->
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_borr_period_filter">Duration Filter:</label>
+                <select id="borrower-filter-period" onchange="renderLendings()" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="all" data-i18n="opt_all_time">All Time</option>
+                  <option value="monthly" data-i18n="opt_monthly">Started Current Month</option>
+                  <option value="quarterly" data-i18n="opt_quarterly">Started Current Quarter</option>
+                  <option value="yearly" data-i18n="opt_annually">Started Current Year</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <form id="lending-form" class="grid-form">
+            <input type="text" id="lend-person" placeholder="Borrower Name" data-i18n-ph="borr_name_ph" required>
+            <input type="number" id="lend-principal" placeholder="Principal Given (₹)" data-i18n-ph="prin_given_ph" step="1" min="1" required>
+            <input type="number" id="lend-rate" placeholder="Monthly Interest Rate % (p.m.)" data-i18n-ph="m_rate_ph" step="0.01" min="0" required>
+            <input type="date" id="lend-start-date" required>
+            <input type="date" id="lend-end-date" required>
+            <button type="submit" class="btn-primary" style="background: #d97706;" data-i18n="btn_add_borr_acc">Add Borrower Account</button>
+          </form>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_borr_person">Borrower Person</th>
+                  <th data-i18n="th_given_prin">Given Principal</th>
+                  <th data-i18n="th_monthly_rate">Monthly Rate %</th>
+                  <th data-i18n="th_tenure">Tenure</th>
+                  <th data-i18n="th_acc_int">Accrued Interest</th>
+                  <th data-i18n="th_tot_rec">Total Receivable</th>
+                  <th data-i18n="th_tot_rec_prin">Total Rec. Principal</th>
+                  <th data-i18n="th_tot_rec_int">Total Rec. Interest</th>
+                  <th data-i18n="th_rem_tot_bal">Remaining Total Balance</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="lending-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 6: BORROWING DETAILS SECTION (KARJ LIYA) -->
+      <div id="borrowing-page" class="page-section">
+        <div class="section-box">
+          <div class="section-title">
+            <span data-i18n="borrowing_title">💳 Borrowing Details (Karj Liya)</span>
+            <div class="flex items-center gap-2">
+              <button onclick="exportFilteredBorrowingCSV()" class="px-3 py-1.5 bg-emerald-600 text-white text-xs rounded-lg font-semibold hover:bg-emerald-700 flex items-center gap-1 shadow-sm">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i> <span data-i18n="btn_export_csv">Export CSV</span>
+              </button>
+              <button onclick="exportFilteredBorrowingPDF()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1 shadow-sm">
+                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span data-i18n="btn_gen_filt_pdf">Generate Filtered PDF Report</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- TOP METRICS CARDS FOR BORROWING -->
+          <div class="dashboard-cards grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="card-stat balance" style="background: #e11d48;">
+              <h3 data-i18n="stat_tot_prin_taken">Total Principal Taken</h3>
+              <p id="borrowing-top-principal">₹0.00</p>
+            </div>
+            <div class="card-stat expense" style="background: #d97706;">
+              <h3 data-i18n="stat_tot_acc_int_payable">Total Accrued Interest Payable</h3>
+              <p id="borrowing-top-interest">₹0.00</p>
+            </div>
+            <div class="card-stat income" style="background: #4f46e5;">
+              <h3 data-i18n="stat_tot_payable_bal">Total Payable Amount</h3>
+              <p id="borrowing-top-total-payable">₹0.00</p>
+            </div>
+          </div>
+
+          <!-- FILTER BAR WITH SEARCH, DATES AND DURATION FILTER -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+              <!-- Search Box -->
+              <div class="relative w-full md:w-56">
+                <label for="searchBorrowingName" class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_search_lender">Search Lender Name:</label>
+                <div class="relative">
+                  <input type="text" id="searchBorrowingName" oninput="renderBorrowings()" placeholder="Type lender name..." data-i18n-ph="search_lender_ph" class="w-full bg-white border border-slate-300 text-slate-800 text-xs rounded-lg pl-8 pr-3 py-2 font-medium focus:ring-indigo-500 focus:border-indigo-500">
+                  <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+                </div>
+              </div>
+
+              <!-- Duration Filter -->
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_borr_period_filter">Duration Filter:</label>
+                <select id="borrowing-filter-period" onchange="renderBorrowings()" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="all" data-i18n="opt_all_time">All Time</option>
+                  <option value="monthly" data-i18n="opt_monthly">Started Current Month</option>
+                  <option value="quarterly" data-i18n="opt_quarterly">Started Current Quarter</option>
+                  <option value="yearly" data-i18n="opt_annually">Started Current Year</option>
+                </select>
+              </div>
+
+              <!-- Filter Date: Amount Given Date -->
+              <div>
+                <label for="borrowing-filter-start-date" class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_amt_given_date">Amount Given Date:</label>
+                <input type="date" id="borrowing-filter-start-date" onchange="renderBorrowings()" class="text-xs font-semibold p-1.5 border border-slate-300 rounded-lg bg-white">
+              </div>
+
+              <!-- Filter Date: Interest Upto Date -->
+              <div>
+                <label for="borrowing-filter-interest-date" class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_int_upto_date">Interest Upto Date:</label>
+                <input type="date" id="borrowing-filter-interest-date" onchange="renderBorrowings()" class="text-xs font-semibold p-1.5 border border-slate-300 rounded-lg bg-white">
+              </div>
+            </div>
+          </div>
+
+          <form id="borrowing-form" class="grid-form">
+            <input type="text" id="borrow-person" placeholder="Lender / Party Name" data-i18n-ph="lender_name_ph" required>
+            <input type="number" id="borrow-principal" placeholder="Principal Amount (₹)" data-i18n-ph="prin_amount_ph" step="1" min="1" required>
+            <input type="number" id="borrow-rate" placeholder="Monthly Interest Rate % (p.m.)" data-i18n-ph="m_rate_ph" step="0.01" min="0" required>
+            <input type="date" id="borrow-start-date" required>
+            <input type="date" id="borrow-end-date" required>
+            <button type="submit" class="btn-primary" style="background: #dc2626;" data-i18n="btn_add_borrowing">Add Borrowing</button>
+          </form>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-borrowings" onchange="toggleSelectAllBorrowings(this)"></th>
+                  <th data-i18n="th_lender_source">Lender / Source</th>
+                  <th data-i18n="th_prin_taken">Principal Taken</th>
+                  <th data-i18n="th_monthly_rate">Monthly Rate %</th>
+                  <th data-i18n="th_start_date">Amount Given Date</th>
+                  <th data-i18n="th_due_date">Due Date / Interest Upto</th>
+                  <th data-i18n="th_tenure">Tenure</th>
+                  <th data-i18n="th_acc_int">Accrued Interest</th>
+                  <th data-i18n="th_tot_payable">Total Payable</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="borrowing-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE 7: RECURRING EXPENDITURE SECTION -->
+      <div id="recurring-page" class="page-section">
+        <div class="section-box">
+          <div class="section-title">
+            <span data-i18n="recurring_title">🔄 Recurring Expenditure</span>
+            <button onclick="exportRecurringPDF()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1">
+              <i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span data-i18n="btn_export_pdf_rep">Export PDF Report</span>
+            </button>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex flex-wrap items-center gap-4">
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_status_filter">Status Filter:</label>
+                <select id="rec-filter-status" onchange="renderRecurring()" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="all" data-i18n="opt_all_statuses">All Statuses</option>
+                  <option value="paid" data-i18n="opt_paid_only">Paid Only</option>
+                  <option value="unpaid" data-i18n="opt_unpaid_only">Unpaid Only</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-bold text-slate-500 uppercase block mb-1" data-i18n="lbl_period_pay_filter">Period / Payment Filter:</label>
+                <select id="rec-filter-period" onchange="renderRecurring()" class="text-xs font-semibold p-2 border border-slate-300 rounded-lg bg-white">
+                  <option value="all" data-i18n="opt_all_time_due">All Time / Any Due Date</option>
+                  <option value="overdue" data-i18n="opt_overdue">Overdue</option>
+                  <option value="7days" data-i18n="opt_due_7days">Due in Next 7 Days</option>
+                  <option value="monthly" data-i18n="opt_curr_month">Current Month</option>
+                  <option value="quarterly" data-i18n="opt_curr_quarter">Current Quarter</option>
+                  <option value="yearly" data-i18n="opt_curr_year">Current Year</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button onclick="exportRecurringPDF()" class="px-4 py-2 bg-indigo-600 text-white text-xs rounded-lg font-semibold hover:bg-indigo-700 flex items-center gap-1 shadow-sm">
+                <i data-lucide="file-text" class="w-4 h-4"></i> <span data-i18n="btn_gen_filt_pdf">Generate Filtered PDF Report</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="dashboard-cards">
+            <div class="card-stat recurring">
+              <h3 data-i18n="stat_tot_rec_commit">Total Recurring Commitments</h3>
+              <p id="rec-total-count">0</p>
+            </div>
+            <div class="card-stat expense">
+              <h3 data-i18n="stat_tot_rec_m_cost">Total Recurring Monthly Cost</h3>
+              <p id="rec-total-monthly-cost">₹0.00</p>
+            </div>
+            <div class="card-stat balance">
+              <h3 data-i18n="stat_tot_rec_y_cost">Total Recurring Annual Cost</h3>
+              <p id="rec-total-annual-cost">₹0.00</p>
+            </div>
+          </div>
+
+          <form id="recurring-form" class="grid-form">
+            <input type="text" id="rec-name" placeholder="Name of Expenditure" data-i18n-ph="rec_name_ph" required>
+            <select id="rec-frequency" required>
+              <option value="monthly" data-i18n="opt_monthly_freq">Monthly</option>
+              <option value="quarterly" data-i18n="opt_quarterly_freq">Quarterly</option>
+              <option value="yearly" data-i18n="opt_yearly_freq">Yearly</option>
+            </select>
+            <input type="number" id="rec-amount" placeholder="Amount (₹)" data-i18n-ph="amount_ph" step="0.01" min="0.01" required>
+            <input type="date" id="rec-duedate" required>
+            <select id="rec-status" required>
+              <option value="unpaid" data-i18n="opt_unpaid">Unpaid</option>
+              <option value="paid" data-i18n="opt_paid">Paid</option>
+            </select>
+            <input type="text" id="rec-remarks" placeholder="Remarks / Notes" data-i18n-ph="remarks_notes_ph" required>
+            <button type="submit" class="btn-primary" style="background: #8b5cf6;" data-i18n="btn_add_recurring">Add Recurring</button>
+          </form>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="th_name_exp">Name of Expenditure</th>
+                  <th data-i18n="th_freq">Frequency</th>
+                  <th data-i18n="th_amount">Amount</th>
+                  <th data-i18n="th_next_due">Next Due Date</th>
+                  <th data-i18n="th_pay_status">Payment Status</th>
+                  <th data-i18n="th_status_rem">Status / Reminder</th>
+                  <th data-i18n="th_remarks">Remarks</th>
+                  <th data-i18n="th_action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="recurring-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- EDIT MODAL DIALOG -->
+  <div id="editModal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 id="modalTitle" class="text-lg font-bold text-slate-800" data-i18n="modal_edit_title">Edit Record</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <form id="editForm" onsubmit="saveModalEdit(event)" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-0">
+        <input type="hidden" id="edit-category">
+        <input type="hidden" id="edit-index">
+
+        <div class="col-span-2">
+          <label id="edit-label-name" class="text-xs font-semibold text-slate-600 uppercase" data-i18n="lbl_name">Name</label>
+          <input type="text" id="edit-name" required class="w-full mt-1">
+        </div>
+
+        <div>
+          <label id="edit-label-principal" class="text-xs font-semibold text-slate-600 uppercase" data-i18n="lbl_amt_prin">Amount / Principal (₹)</label>
+          <input type="number" id="edit-principal" step="0.01" min="0.01" required class="w-full mt-1">
+        </div>
+
+        <div id="edit-rate-container">
+          <label id="edit-label-rate" class="text-xs font-semibold text-slate-600 uppercase" data-i18n="lbl_rate">Interest Rate %</label>
+          <input type="number" id="edit-rate" step="0.01" min="0" class="w-full mt-1">
+        </div>
+
+        <div id="edit-type-container" class="hidden">
+          <label class="text-xs font-semibold text-slate-600 uppercase" data-i18n="lbl_tx_type">Transaction Type</label>
+          <select id="edit-type" class="w-full mt-1">
+            <option value="income" data-i18n="opt_inc">Income</option>
+            <option value="expense" data-i18n="opt_exp">Expense</option>
+          </select>
+        </div>
+
+        <div id="edit-freq-container" class="hidden">
+          <label class="text-xs font-semibold text-slate-600 uppercase" data-i18n="th_freq">Frequency</label>
+          <select id="edit-freq" class="w-full mt-1">
+            <option value="monthly" data-i18n="opt_monthly_freq">Monthly</option>
+            <option value="quarterly" data-i18n="opt_quarterly_freq">Quarterly</option>
+            <option value="yearly" data-i18n="opt_yearly_freq">Yearly</option>
+          </select>
+        </div>
+
+        <div id="edit-status-container" class="hidden">
+          <label class="text-xs font-semibold text-slate-600 uppercase" data-i18n="th_pay_status">Payment Status</label>
+          <select id="edit-status" class="w-full mt-1">
+            <option value="unpaid" data-i18n="opt_unpaid">Unpaid</option>
+            <option value="paid" data-i18n="opt_paid">Paid</option>
+          </select>
+        </div>
+
+        <div id="edit-date1-container">
+          <label id="edit-label-date1" class="text-xs font-semibold text-slate-600 uppercase" data-i18n="lbl_start_date">Start Date / Date</label>
+          <input type="date" id="edit-date1" class="w-full mt-1">
+        </div>
+
+        <div id="edit-date2-container">
+          <label id="edit-label-date2" class="text-xs font-semibold text-slate-600 uppercase" data-i18n="lbl_end_date">End / Maturity Date</label>
+          <input type="date" id="edit-date2" class="w-full mt-1">
+        </div>
+
+        <div id="edit-remarks-container" class="col-span-2 hidden">
+          <label class="text-xs font-semibold text-slate-600 uppercase" data-i18n="th_remarks">Remarks</label>
+          <input type="text" id="edit-remarks" class="w-full mt-1">
+        </div>
+
+        <div class="col-span-2 flex justify-end gap-2 mt-4 pt-2 border-t">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold text-sm" data-i18n="btn_cancel">Cancel</button>
+          <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-sm" data-i18n="btn_save_changes">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- DEPOSIT / PAYMENT HISTORY MODAL -->
+  <div id="depositModal" class="fixed inset-0 bg-slate-900/50 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-xl space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <div>
+          <h3 class="text-lg font-bold text-slate-800" id="depositModalTitle" data-i18n="dep_modal_title">Borrower Transaction History</h3>
+          <p class="text-xs text-slate-500" id="depositModalSubTitle" data-i18n="dep_modal_sub">Track date-wise repayments with custom remarks</p>
+        </div>
+        <button onclick="closeDepositModal()" class="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
+      </div>
+
+      <form id="add-deposit-form" onsubmit="addBorrowerDeposit(event)" class="grid grid-cols-1 sm:grid-cols-5 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+        <input type="hidden" id="deposit-borrower-index">
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase" data-i18n="lbl_dep_date">Deposit Date</label>
+          <input type="date" id="dep-date" required class="w-full text-xs p-2">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase" data-i18n="lbl_prin_paid">Principal (₹)</label>
+          <input type="number" id="dep-principal" step="1" min="0" value="0" required class="w-full text-xs p-2">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase" data-i18n="lbl_int_paid">Interest (₹)</label>
+          <input type="number" id="dep-interest" step="1" min="0" value="0" required class="w-full text-xs p-2">
+        </div>
+        <div>
+          <label class="text-[10px] font-bold text-slate-500 uppercase" data-i18n="th_remarks">Remarks / Notes</label>
+          <input type="text" id="dep-remarks" placeholder="e.g. UPI / Cash" data-i18n-ph="dep_remarks_ph" required class="w-full text-xs p-2">
+        </div>
+        <div class="flex items-end">
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs p-2 rounded-lg" data-i18n="btn_add_tx">Add Transaction</button>
+        </div>
+      </form>
+
+      <div class="table-container max-h-60 overflow-y-auto">
+        <table>
+          <thead>
+            <tr>
+              <th data-i18n="lbl_dep_date">Deposit Date</th>
+              <th data-i18n="lbl_prin_paid">Principal Paid</th>
+              <th data-i18n="lbl_int_paid">Interest Paid</th>
+              <th data-i18n="th_remarks">Remarks / Details</th>
+              <th data-i18n="th_action">Action</th>
+            </tr>
+          </thead>
+          <tbody id="deposit-history-list"></tbody>
+        </table>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t">
+        <button id="btn-export-single-pdf" onclick="" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold text-xs flex items-center gap-1">
+          <i data-lucide="file-text" class="w-4 h-4"></i> <span data-i18n="btn_export_borr_stmt">Export Borrower Statement PDF</span>
+        </button>
+        <button type="button" onclick="closeDepositModal()" class="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 font-semibold text-xs" data-i18n="btn_close">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // --- BILINGUAL DICTIONARY (ENGLISH / HINDI) ---
+  const translations = {
+    en: {
+      login_heading: "Financial Management",
+      login_subheading: "Please sign in to access your dashboard",
+      login_err: "Invalid Login ID or Password.",
+      login_id_label: "Login ID",
+      login_id_ph: "Enter Login ID",
+      login_pass_label: "Password",
+      login_pass_ph: "Enter Password",
+      login_btn: "Sign In",
+      sidebar_title: "Vinay Asset Details",
+      nav_dashboard: "📊 Overview Dashboard",
+      nav_bank: "🏦 Bank Balances & Ledger",
+      nav_tracker: "💵 Income & Expense Tracker",
+      nav_investment: "📈 Investments & Maturity",
+      nav_lending: "🤝 Borrower Details",
+      nav_borrowing: "💳 Borrowing Details",
+      nav_recurring: "🔄 Recurring Expenditure",
+      nav_logout: "Logout",
+      welcome_title: "Welcome Vinay Prabhakar Mishra",
+      welcome_sub: "ALIO, UPSC | Contact: 7701940276 | Email: vinay.pravaker@gmail.com",
+      lang_label: "Language:",
+      due_reminder: "Due Reminder",
+      dash_header_title: "Overview Dashboard",
+      current_datetime: "Current Date & Time:",
+      btn_export_csv: "Export CSV",
+      btn_export_pdf: "Export PDF",
+      quick_links_title: "Quick Financial Links",
+      period_label: "Period:",
+      filter_by_label: "Filter By:",
+      opt_all_time: "All Time",
+      opt_weekly: "Weekly (Last 7 Days)",
+      opt_monthly: "Monthly (Current Month)",
+      opt_quarterly: "Quarterly (Current Quarter)",
+      opt_annually: "Annually (Current Year)",
+      opt_all_types: "All Types",
+      opt_credit: "Credit",
+      opt_expense: "Expenses / Expenditure",
+      stat_tot_bank: "Total Bank Balance",
+      stat_tot_credit: "Total Credit",
+      stat_tot_exp: "Total Expenses",
+      stat_tot_expenditure: "Total Expenditure",
+      stat_net_bal: "Net Balance",
+      stat_tot_wealth: "Total Combined Wealth",
+      card_tracker_bal: "Tracker Balance",
+      card_tot_invested: "Total Invested",
+      card_est_mat: "Est. Maturity Value",
+      card_rem_karj: "Remaining Karj Receivable",
+      chart_title: "Financial Overview Summary",
+      bank_title: "🏦 Bank Accounts & Credit/Debit Ledger",
+      btn_export_bank_pdf: "Export Bank Statement PDF",
+      stat_tot_bank_bal: "Total Bank Balance",
+      stat_tot_acc: "Total Accounts",
+      stat_tot_tx_logged: "Total Transactions Logged",
+      add_bank_sub: "1. Add New Bank Account",
+      bank_name_ph: "Bank Name (e.g., SBI, HDFC)",
+      bank_bal_ph: "Opening Balance (₹)",
+      btn_add_bank: "Add Bank Account",
+      th_bank_name: "Bank Name",
+      th_curr_bal: "Current Balance",
+      th_action: "Action",
+      log_bank_tx_sub: "2. Log Bank Credit / Debit Entry",
+      opt_sel_bank: "-- Select Bank Account --",
+      opt_credit_dep: "Credit (+ Deposit)",
+      opt_debit_with: "Debit (- Withdrawal)",
+      amount_ph: "Amount (₹)",
+      remarks_ph: "Remarks / Details",
+      btn_log_entry: "Log Entry",
+      tx_entries_sub: "3. Detailed Bank Transaction Entries",
+      th_date: "Date",
+      th_bank_acc: "Bank Account",
+      th_type: "Type",
+      th_amount: "Amount",
+      th_remarks: "Remarks / Details",
+      tracker_title: "💵 Income & Expense Tracker",
+      lbl_filter_type: "Filter Type:",
+      opt_all_tx: "All Transactions",
+      opt_inc_only: "Income Only",
+      opt_exp_only: "Expense Only",
+      lbl_dur_filter: "Duration Filter:",
+      opt_half_yearly: "Half-Yearly (Last 6 Months)",
+      btn_gen_filt_pdf: "Generate Filtered PDF Report",
+      stat_tot_income: "Total Income",
+      desc_ph: "Description (e.g., Salary, Rent)",
+      opt_inc: "Income",
+      opt_exp: "Expense",
+      btn_add_tx: "Add Transaction",
+      th_tx_date: "Transaction Date",
+      th_desc: "Description",
+      inv_title: "📈 Investment Portfolio & Annual Interest Metrics",
+      btn_export_pdf_rep: "Export PDF Report",
+      stat_tot_inv_prin: "Total Invested Principal",
+      stat_tot_ann_gain: "Total Annual Interest Gain (p.a.)",
+      stat_est_tot_mat: "Est. Total Maturity Value",
+      inv_name_ph: "Investment Name",
+      inv_prin_ph: "Invested Principal (₹)",
+      inv_rate_ph: "Annual Interest %",
+      btn_add_inv: "Add Investment",
+      th_inv_name: "Investment Name",
+      th_inv_prin: "Invested Principal",
+      th_ann_rate: "Annual Interest Rate",
+      th_est_ann_gain: "Est. Annual Gain (₹)",
+      th_start_date: "Start Date",
+      th_mat_date: "Maturity Date",
+      th_est_mat_val: "Est. Maturity Value",
+      lending_title: "🤝 Borrower Details (Karj Diya)",
+      btn_export_all_borr_pdf: "Export All Borrower PDF",
+      stat_tot_prin_given: "Total Principal Given",
+      stat_tot_acc_int: "Total Accrued Interest",
+      stat_tot_int_coll: "Total Interest Collected",
+      lbl_search_borr: "Search Borrower Name:",
+      search_borr_ph: "Type borrower name to search...",
+      lbl_borr_status_filter: "Payment Status:",
+      opt_all_borr_status: "All Borrowers",
+      opt_borr_pending: "Pending / Active Loan",
+      opt_borr_cleared: "Cleared / Fully Paid",
+      lbl_borr_period_filter: "Duration Filter:",
+      borr_name_ph: "Borrower Name",
+      prin_given_ph: "Principal Given (₹)",
+      m_rate_ph: "Monthly Interest Rate % (p.m.)",
+      btn_add_borr_acc: "Add Borrower Account",
+      th_borr_person: "Borrower Person",
+      th_given_prin: "Given Principal",
+      th_monthly_rate: "Monthly Rate %",
+      th_tenure: "Tenure",
+      th_acc_int: "Accrued Interest",
+      th_tot_rec: "Total Receivable",
+      th_tot_rec_prin: "Total Rec. Principal",
+      th_tot_rec_int: "Total Rec. Interest",
+      th_rem_tot_bal: "Remaining Total Balance",
+      borrowing_title: "💳 Borrowing Details (Karj Liya)",
+      stat_tot_prin_taken: "Total Principal Taken",
+      stat_tot_acc_int_payable: "Total Accrued Interest Payable",
+      stat_tot_payable_bal: "Total Payable Amount",
+      lbl_search_lender: "Search Lender Name:",
+      search_lender_ph: "Type lender name to search...",
+      lbl_amt_given_date: "Amount Given Date:",
+      lbl_int_upto_date: "Interest Upto Date:",
+      lender_name_ph: "Lender / Party Name",
+      prin_amount_ph: "Principal Amount (₹)",
+      btn_add_borrowing: "Add Borrowing",
+      th_lender_source: "Lender / Source",
+      th_prin_taken: "Principal Taken",
+      th_due_date: "Due Date",
+      th_tot_payable: "Total Payable",
+      recurring_title: "🔄 Recurring Expenditure",
+      lbl_status_filter: "Status Filter:",
+      opt_all_statuses: "All Statuses",
+      opt_paid_only: "Paid Only",
+      opt_unpaid_only: "Unpaid Only",
+      lbl_period_pay_filter: "Period / Payment Filter:",
+      opt_all_time_due: "All Time / Any Due Date",
+      opt_overdue: "Overdue",
+      opt_due_7days: "Due in Next 7 Days",
+      opt_curr_month: "Current Month",
+      opt_curr_quarter: "Current Quarter",
+      opt_curr_year: "Current Year",
+      stat_tot_rec_commit: "Total Recurring Commitments",
+      stat_tot_rec_m_cost: "Total Recurring Monthly Cost",
+      stat_tot_rec_y_cost: "Total Recurring Annual Cost",
+      rec_name_ph: "Name of Expenditure",
+      opt_monthly_freq: "Monthly",
+      opt_quarterly_freq: "Quarterly",
+      opt_yearly_freq: "Yearly",
+      opt_unpaid: "Unpaid",
+      opt_paid: "Paid",
+      remarks_notes_ph: "Remarks / Notes",
+      btn_add_recurring: "Add Recurring",
+      th_name_exp: "Name of Expenditure",
+      th_freq: "Frequency",
+      th_next_due: "Next Due Date",
+      th_pay_status: "Payment Status",
+      th_status_rem: "Status / Reminder",
+      modal_edit_title: "Edit Record",
+      lbl_name: "Name",
+      lbl_amt_prin: "Amount / Principal (₹)",
+      lbl_rate: "Interest Rate %",
+      lbl_tx_type: "Transaction Type",
+      lbl_end_date: "End / Maturity Date",
+      btn_cancel: "Cancel",
+      btn_save_changes: "Save Changes",
+      dep_modal_title: "Borrower Transaction History",
+      dep_modal_sub: "Track date-wise repayments with custom remarks",
+      lbl_dep_date: "Deposit Date",
+      lbl_prin_paid: "Principal Paid",
+      lbl_int_paid: "Interest Paid",
+      dep_remarks_ph: "e.g. UPI / Cash",
+      btn_export_borr_stmt: "Export Borrower Statement PDF",
+      btn_close: "Close",
+      edit_btn: "Edit",
+      delete_btn: "Delete",
+      view_deps_btn: "View Deposits"
+    },
+    hi: {
+      login_heading: "वित्तीय प्रबंधन",
+      login_subheading: "अपने डैशबोर्ड तक पहुँचने के लिए कृपया साइन इन करें",
+      login_err: "अमान्य लॉगिन आईडी या पासवर्ड।",
+      login_id_label: "लॉगिन आईडी",
+      login_id_ph: "लॉगिन आईडी दर्ज करें",
+      login_pass_label: "पासवर्ड",
+      login_pass_ph: "पासवर्ड दर्ज करें",
+      login_btn: "साइन इन करें",
+      sidebar_title: "विनय संपत्ति विवरण",
+      nav_dashboard: "📊 अवलोकन डैशबोर्ड",
+      nav_bank: "🏦 बैंक शेष और बहीखाता",
+      nav_tracker: "💵 आय और व्यय ट्रैकर",
+      nav_investment: "📈 निवेश और परिपक्वता",
+      nav_lending: "🤝 उधारकर्ता विवरण (कर्ज दिया)",
+      nav_borrowing: "💳 ऋण विवरण (कर्ज लिया)",
+      nav_recurring: "🔄 आवर्ती व्यय (Recurring)",
+      nav_logout: "लॉग आउट",
+      welcome_title: "स्वागत है, विनय प्रभाकर मिश्रा",
+      welcome_sub: "ALIO, UPSC | संपर्क: 7701940276 | ईमेल: vinay.pravaker@gmail.com",
+      lang_label: "भाषा:",
+      due_reminder: "बकाया अनुस्मारक",
+      dash_header_title: "अवलोकन डैशबोर्ड",
+      current_datetime: "वर्तमान तिथि और समय:",
+      btn_export_csv: "सीएसवी निर्यात करें",
+      btn_export_pdf: "पीडीएफ निर्यात करें",
+      quick_links_title: "त्वरित वित्तीय लिंक्स",
+      period_label: "अवधि:",
+      filter_by_label: "फ़िल्टर द्वारा:",
+      opt_all_time: "सभी समय",
+      opt_weekly: "साप्ताहिक (अंतिम 7 दिन)",
+      opt_monthly: "मासिक (वर्तमान माह)",
+      opt_quarterly: "त्रैमासिक (वर्तमान तिमाही)",
+      opt_annually: "वार्षिक (वर्तमान वर्ष)",
+      opt_all_types: "सभी प्रकार",
+      opt_credit: "क्रेडिट (आय)",
+      opt_expense: "व्यय / खर्च",
+      stat_tot_bank: "कुल बैंक शेष",
+      stat_tot_credit: "कुल क्रेडिट",
+      stat_tot_exp: "कुल खर्च",
+      stat_tot_expenditure: "कुल व्यय",
+      stat_net_bal: "शुद्ध शेष (Net Balance)",
+      stat_tot_wealth: "कुल संयुक्त संपत्ति",
+      card_tracker_bal: "ट्रैकर शेष",
+      card_tot_invested: "कुल निवेशित",
+      card_est_mat: "अनुमानित परिपक्वता मूल्य",
+      card_rem_karj: "शेष कर्ज प्राप्य",
+      chart_title: "वित्तीय अवलोकन सारांश",
+      bank_title: "🏦 बैंक खाते और क्रेडिट/डेबिट बहीखाता",
+      btn_export_bank_pdf: "बैंक स्टेटमेंट पीडीएफ निर्यात करें",
+      stat_tot_bank_bal: "कुल बैंक शेष",
+      stat_tot_acc: "कुल खाते",
+      stat_tot_tx_logged: "कुल लॉग किए गए लेन-देन",
+      add_bank_sub: "1. नया बैंक खाता जोड़ें",
+      bank_name_ph: "बैंक का नाम (जैसे SBI, HDFC)",
+      bank_bal_ph: "प्रारंभिक शेष (₹)",
+      btn_add_bank: "बैंक खाता जोड़ें",
+      th_bank_name: "बैंक का नाम",
+      th_curr_bal: "वर्तमान शेष",
+      th_action: "कार्रवाई",
+      log_bank_tx_sub: "2. बैंक क्रेडिट / डेबिट प्रविष्टि लॉग करें",
+      opt_sel_bank: "-- बैंक खाता चुनें --",
+      opt_credit_dep: "क्रेडिट (+ जमा)",
+      opt_debit_with: "डेबिट (- निकासी)",
+      amount_ph: "राशि (₹)",
+      remarks_ph: "टिप्पणी / विवरण",
+      btn_log_entry: "प्रविष्टि लॉग करें",
+      tx_entries_sub: "3. विस्तृत बैंक लेनदेन प्रविष्टियां",
+      th_date: "तिथि",
+      th_bank_acc: "बैंक खाता",
+      th_type: "प्रकार",
+      th_amount: "राशि",
+      th_remarks: "टिप्पणी / विवरण",
+      tracker_title: "💵 आय और व्यय ट्रैकर",
+      lbl_filter_type: "प्रकार फ़िल्टर:",
+      opt_all_tx: "सभी लेनदेन",
+      opt_inc_only: "केवल आय",
+      opt_exp_only: "केवल व्यय",
+      lbl_dur_filter: "अवधि फ़िल्टर:",
+      opt_half_yearly: "छमाही (अंतिम 6 महीने)",
+      btn_gen_filt_pdf: "फ़िल्टर की गई पीडीएफ रिपोर्ट बनाएं",
+      stat_tot_income: "कुल आय",
+      desc_ph: "विवरण (जैसे वेतन, किराया)",
+      opt_inc: "आय",
+      opt_exp: "व्यय",
+      btn_add_tx: "लेनदेन जोड़ें",
+      th_tx_date: "लेनदेन तिथि",
+      th_desc: "विवरण",
+      inv_title: "📈 निवेश पोर्टफोलियो और वार्षिक ब्याज मेट्रिक्स",
+      btn_export_pdf_rep: "पीडीएफ रिपोर्ट निर्यात करें",
+      stat_tot_inv_prin: "कुल निवेशित मूलधन",
+      stat_tot_ann_gain: "कुल वार्षिक ब्याज लाभ (प्रति वर्ष)",
+      stat_est_tot_mat: "अनुमानित कुल परिपक्वता मूल्य",
+      inv_name_ph: "निवेश का नाम",
+      inv_prin_ph: "निवेशित मूलधन (₹)",
+      inv_rate_ph: "वार्षिक ब्याज %",
+      btn_add_inv: "निवेश जोड़ें",
+      th_inv_name: "निवेश का नाम",
+      th_inv_prin: "निवेशित मूलधन",
+      th_ann_rate: "वार्षिक ब्याज दर",
+      th_est_ann_gain: "अनुमानित वार्षिक लाभ (₹)",
+      th_start_date: "प्रारंभ तिथि",
+      th_mat_date: "परिपक्वता तिथि",
+      th_est_mat_val: "अनुमानित परिपक्वता मूल्य",
+      lending_title: "🤝 उधारकर्ता विवरण (कर्ज दिया)",
+      btn_export_all_borr_pdf: "सभी उधारकर्ता पीडीएफ निर्यात करें",
+      stat_tot_prin_given: "कुल दिया गया मूलधन",
+      stat_tot_acc_int: "कुल अर्जित ब्याज",
+      stat_tot_int_coll: "कुल एकत्रित ब्याज",
+      lbl_search_borr: "उधारकर्ता का नाम खोजें:",
+      search_borr_ph: "खोजने के लिए उधारकर्ता का नाम टाइप करें...",
+      lbl_borr_status_filter: "भुगतान स्थिति:",
+      opt_all_borr_status: "सभी उधारकर्ता",
+      opt_borr_pending: "लंबित / सक्रिय ऋण",
+      opt_borr_cleared: "चुकाया गया / पूर्ण भुगतान",
+      lbl_borr_period_filter: "अवधि फ़िल्टर:",
+      borr_name_ph: "उधारकर्ता का नाम",
+      prin_given_ph: "दिया गया मूलधन (₹)",
+      m_rate_ph: "मासिक ब्याज दर % (प्रति माह)",
+      btn_add_borr_acc: "उधारकर्ता खाता जोड़ें",
+      th_borr_person: "उधारकर्ता व्यक्ति",
+      th_given_prin: "दिया गया मूलधन",
+      th_monthly_rate: "मासिक दर %",
+      th_tenure: "अवधि",
+      th_acc_int: "अर्जित ब्याज",
+      th_tot_rec: "कुल प्राप्य",
+      th_tot_rec_prin: "कुल प्राप्त मूलधन",
+      th_tot_rec_int: "कुल प्राप्त ब्याज",
+      th_rem_tot_bal: "शेष कुल शेष राशि",
+      borrowing_title: "💳 ऋण विवरण (कर्ज लिया)",
+      stat_tot_prin_taken: "कुल लिया गया मूलधन",
+      stat_tot_acc_int_payable: "कुल अर्जित देय ब्याज",
+      stat_tot_payable_bal: "कुल देय राशि",
+      lbl_search_lender: "ऋणदाता का नाम खोजें:",
+      search_lender_ph: "खोजने के लिए ऋणदाता का नाम टाइप करें...",
+      lbl_amt_given_date: "राशि देने की तिथि:",
+      lbl_int_upto_date: "ब्याज तक की तिथि:",
+      lender_name_ph: "ऋणदाता / पार्टी का नाम",
+      prin_amount_ph: "मूल राशि (₹)",
+      btn_add_borrowing: "ऋण जोड़ें",
+      th_lender_source: "ऋणदाता / स्रोत",
+      th_prin_taken: "लिया गया मूलधन",
+      th_due_date: "नियत तिथि",
+      th_tot_payable: "कुल देय",
+      recurring_title: "🔄 आवर्ती व्यय (Recurring)",
+      lbl_status_filter: "स्थिति फ़िल्टर:",
+      opt_all_statuses: "सभी स्थितियां",
+      opt_paid_only: "केवल भुगतान किया गया",
+      opt_unpaid_only: "केवल बकाया (Unpaid)",
+      lbl_period_pay_filter: "अवधि / भुगतान फ़िल्टर:",
+      opt_all_time_due: "सभी समय / कोई भी नियत तिथि",
+      opt_overdue: "समय से ऊपर (Overdue)",
+      opt_due_7days: "अगले 7 दिनों में देय",
+      opt_curr_month: "वर्तमान माह",
+      opt_curr_quarter: "वर्तमान तिमाही",
+      opt_curr_year: "वर्तमान वर्ष",
+      stat_tot_rec_commit: "कुल आवर्ती प्रतिबद्धताएं",
+      stat_tot_rec_m_cost: "कुल आवर्ती मासिक लागत",
+      stat_tot_rec_y_cost: "कुल आवर्ती वार्षिक लागत",
+      rec_name_ph: "व्यय का नाम",
+      opt_monthly_freq: "मासिक",
+      opt_quarterly_freq: "त्रैमासिक",
+      opt_yearly_freq: "वार्षिक",
+      opt_unpaid: "बकाया (Unpaid)",
+      opt_paid: "भुगतान किया गया (Paid)",
+      remarks_notes_ph: "टिप्पणी / नोट्स",
+      btn_add_recurring: "आवर्ती व्यय जोड़ें",
+      th_name_exp: "व्यय का नाम",
+      th_freq: "आवृत्ति (Frequency)",
+      th_next_due: "अगली नियत तिथि",
+      th_pay_status: "भुगतान स्थिति",
+      th_status_rem: "स्थिति / अनुस्मारक",
+      modal_edit_title: "रिकॉर्ड संपादित करें",
+      lbl_name: "नाम",
+      lbl_amt_prin: "राशि / मूलधन (₹)",
+      lbl_rate: "ब्याज दर %",
+      lbl_tx_type: "लेनदेन का प्रकार",
+      lbl_end_date: "अंतिम / परिपक्वता तिथि",
+      btn_cancel: "रद्द करें",
+      btn_save_changes: "परिवर्तन सहेजें",
+      dep_modal_title: "उधारकर्ता लेनदेन इतिहास",
+      dep_modal_sub: "कस्टम टिप्पणियों के साथ तारीख-वार रीपेमेंट ट्रैक करें",
+      lbl_dep_date: "जमा तिथि",
+      lbl_prin_paid: "भुगतान किया गया मूलधन",
+      lbl_int_paid: "भुगतान किया गया ब्याज",
+      dep_remarks_ph: "उदा. यूपीआई / नकद",
+      btn_export_borr_stmt: "उधारकर्ता विवरण पीडीएफ निर्यात करें",
+      btn_close: "बंद करें",
+      edit_btn: "संपादित करें",
+      delete_btn: "हटाएं",
+      view_deps_btn: "जमा देखें"
+    }
+  };
+
+  let currentLang = localStorage.getItem('appLanguage') || 'en';
+
+  function changeLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('appLanguage', lang);
+    document.getElementById('languageSelect').value = lang;
+
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (translations[lang] && translations[lang][key]) {
+        el.innerText = translations[lang][key];
+      }
+    });
+
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+      const key = el.getAttribute('data-i18n-ph');
+      if (translations[lang] && translations[lang][key]) {
+        el.placeholder = translations[lang][key];
+      }
+    });
+
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+      renderBanks();
+      renderTransactions();
+      renderInvestments();
+      renderLendings();
+      renderBorrowings();
+      renderRecurring();
+    }
+  }
+
+  // --- AUTO LOGOUT INACTIVITY TIMER (5 MINUTES) ---
+  const INACTIVITY_LIMIT_MS = 5 * 60 * 1000;
+  let inactivityTimer = null;
+
+  function resetInactivityTimer() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+      inactivityTimer = setTimeout(() => {
+        alert(currentLang === 'hi' 
+          ? "5 मिनट की निष्क्रियता के कारण आप स्वचालित रूप से लॉग आउट हो गए हैं।" 
+          : "You have been automatically logged out due to 5 minutes of inactivity.");
+        handleLogout();
+      }, INACTIVITY_LIMIT_MS);
+    }
+  }
+
+  ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart', 'click'].forEach(evt => {
+    window.addEventListener(evt, resetInactivityTimer, true);
+  });
+
+  function addPdfOwnerHeader(doc) {
+    doc.setFontSize(8);
+    doc.setFont(undefined, 'bold');
+    doc.text("Vinay Prabhakar mishra", 196, 12, { align: "right" });
+    doc.setFont(undefined, 'normal');
+    doc.text("D1/270, Shiv Durga Vihar, faridabad, PIN - 121009", 196, 16, { align: "right" });
+    doc.text("Mobile no. 7701940276", 196, 20, { align: "right" });
+    doc.text("email address - vinay.pravaker@gmail.com", 196, 24, { align: "right" });
+  }
+
+  // --- AUTHENTICATION LOGIC ---
+  function handleLogin(e) {
+    e.preventDefault();
+    const idInput = document.getElementById('login-id').value.trim();
+    const passInput = document.getElementById('login-password').value.trim();
+    const errorMsg = document.getElementById('login-error');
+
+    if (idInput === 'finance' && passInput === 'Vinay@2026') {
+      localStorage.setItem('isLoggedIn', 'true');
+      errorMsg.classList.add('hidden');
+      showAppScreen();
+    } else {
+      errorMsg.classList.remove('hidden');
+    }
+  }
+
+  function handleLogout() {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    localStorage.removeItem('isLoggedIn');
+    document.getElementById('app-screen').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden');
+    document.getElementById('login-id').value = '';
+    document.getElementById('login-password').value = '';
+  }
+
+  function checkAuth() {
+    if (localStorage.getItem('isLoggedIn') === 'true') {
+      showAppScreen();
+    } else {
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('app-screen').classList.add('hidden');
+    }
+  }
+
+  function showAppScreen() {
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('app-screen').classList.remove('hidden');
+    lucide.createIcons();
+    changeLanguage(currentLang);
+    resetInactivityTimer();
+  }
+
+  let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+  let investments = JSON.parse(localStorage.getItem('inr_v4_investments')) || [];
+  let lendings = JSON.parse(localStorage.getItem('inr_v8_lendings')) || [];
+  let borrowings = JSON.parse(localStorage.getItem('inr_v8_borrowings')) || [];
+  let selectedBorrowingIndices = [];
+  let banks = JSON.parse(localStorage.getItem('inr_bank_accounts')) || [];
+  let bankTransactions = JSON.parse(localStorage.getItem('inr_bank_transactions')) || [];
+  let recurrings = JSON.parse(localStorage.getItem('inr_recurring_expenditures')) || [];
+  let chartInstance = null;
+
+  document.getElementById('tracker-date').valueAsDate = new Date();
+  document.getElementById('inv-start-date').valueAsDate = new Date();
+  document.getElementById('lend-start-date').valueAsDate = new Date();
+  document.getElementById('borrow-start-date').valueAsDate = new Date();
+  document.getElementById('bank-tx-date').valueAsDate = new Date();
+  document.getElementById('dep-date').valueAsDate = new Date();
+  document.getElementById('rec-duedate').valueAsDate = new Date();
+
+  function updateLiveDateTime() {
+    const now = new Date();
+    document.getElementById('liveDateTime').textContent = now.toLocaleString(currentLang === 'hi' ? 'hi-IN' : 'en-IN', {
+      dateStyle: 'full', timeStyle: 'medium'
+    });
+  }
+  setInterval(updateLiveDateTime, 1000);
+  updateLiveDateTime();
+
+  function switchTab(targetId, el) {
+    document.querySelectorAll('.page-section').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.getElementById(targetId).classList.add('active');
+    if(el) el.classList.add('active');
+  }
+
+  function switchTabByTarget(targetId) {
+    const navItems = document.querySelectorAll('.nav-item');
+    const targetMap = {
+      'dashboard-page': 0,
+      'bank-page': 1,
+      'tracker-page': 2,
+      'investment-page': 3,
+      'lending-page': 4,
+      'borrowing-page': 5,
+      'recurring-page': 6
+    };
+    switchTab(targetId, navItems[targetMap[targetId]]);
+  }
+
+  const formatINR = (amount) => {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount || 0);
+  };
+
+  function calculateDays(startDateStr, endDateStr) {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+  }
+
+  function getFilteredTransactions() {
+    const timeFilter = document.getElementById('timeFilter').value;
+    const typeFilter = document.getElementById('typeFilter').value;
+    const now = new Date();
+
+    return transactions.filter(t => {
+      const tDate = t.date ? new Date(t.date) : new Date();
+      let matchesTime = true;
+
+      if (timeFilter === 'weekly') {
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 7);
+        matchesTime = tDate >= weekAgo;
+      } else if (timeFilter === 'monthly') {
+        matchesTime = tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+      } else if (timeFilter === 'quarterly') {
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const tQuarter = Math.floor(tDate.getMonth() / 3);
+        matchesTime = currentQuarter === tQuarter && tDate.getFullYear() === now.getFullYear();
+      } else if (timeFilter === 'annually') {
+        matchesTime = tDate.getFullYear() === now.getFullYear();
+      }
+
+      let matchesType = (typeFilter === 'all') || (t.type === typeFilter);
+      return matchesTime && matchesType;
+    });
+  }
+
+  function checkRecurringReminders() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const upcoming = [];
+
+    recurrings.forEach(r => {
+      if (r.status === 'paid') return;
+      const dueDate = new Date(r.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      const diffTime = dueDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays <= 7) {
+        if (diffDays < 0) {
+          upcoming.push(`🚨 OVERDUE: "${r.name}" (${formatINR(r.amount)}) was due on ${r.dueDate}!`);
+        } else if (diffDays === 0) {
+          upcoming.push(`⚠️ DUE TODAY: "${r.name}" (${formatINR(r.amount)}) is due today!`);
+        } else {
+          upcoming.push(`🔔 UPCOMING: "${r.name}" (${formatINR(r.amount)}) is due in ${diffDays} day(s) on ${r.dueDate}.`);
+        }
+      }
+    });
+
+    const ticker = document.getElementById('reminder-ticker');
+    const marquee = document.getElementById('reminder-marquee');
+
+    if (upcoming.length > 0) {
+      marquee.innerHTML = upcoming.join(' &nbsp;&nbsp;&nbsp;&nbsp; | &nbsp;&nbsp;&nbsp;&nbsp; ');
+      ticker.classList.remove('hidden');
+    } else {
+      ticker.classList.add('hidden');
+    }
+  }
+
+  function renderOverview() {
+    const filtered = getFilteredTransactions();
+
+    const totalIncome = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const totalExpenses = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    const totalExpenditure = totalExpenses;
+    const netBalance = totalIncome - totalExpenses;
+
+    const totalBankAccountsBalance = banks.reduce((acc, b) => acc + b.balance, 0);
+    const totalTrackerBalance = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0) -
+                                transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    const totalInvested = investments.reduce((acc, i) => acc + i.principal, 0);
+    const totalMaturity = investments.reduce((acc, i) => acc + i.finalAmount, 0);
+    const totalLendingPrincipal = lendings.reduce((acc, l) => acc + l.principal, 0);
+    const totalLendingRemaining = lendings.reduce((acc, l) => acc + (l.remainingBalance || 0), 0);
+
+    const combinedWealthTotal = totalBankAccountsBalance + totalInvested + totalLendingPrincipal;
+
+    document.getElementById('dash-total-bank').innerText = formatINR(totalBankAccountsBalance);
+    document.getElementById('dash-income').innerText = formatINR(totalIncome);
+    document.getElementById('dash-expenses').innerText = formatINR(totalExpenses);
+    document.getElementById('dash-expenditure').innerText = formatINR(totalExpenditure);
+    document.getElementById('dash-balance').innerText = formatINR(netBalance);
+    document.getElementById('dash-combined-total').innerText = formatINR(combinedWealthTotal);
+
+    document.getElementById('dash-bank').innerText = formatINR(totalTrackerBalance);
+    document.getElementById('dash-invested').innerText = formatINR(totalInvested);
+    document.getElementById('dash-maturity').innerText = formatINR(totalMaturity);
+    document.getElementById('dash-lending').innerText = formatINR(totalLendingRemaining);
+
+    checkRecurringReminders();
+    renderChart(totalIncome, totalExpenses, totalExpenditure, netBalance);
+  }
+
+  function renderChart(income, expenses, expenditure, balance) {
+    const ctx = document.getElementById('overviewChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    const labels = currentLang === 'hi' 
+      ? ['कुल आय', 'कुल खर्च', 'कुल व्यय', 'शुद्ध शेष']
+      : ['Total Income', 'Total Expenses', 'Total Expenditure', 'Net Balance'];
+
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: currentLang === 'hi' ? 'राशि (₹)' : 'Amount (₹)',
+          data: [income, expenses, expenditure, balance],
+          backgroundColor: [
+            'rgba(16, 185, 129, 0.85)',
+            'rgba(244, 63, 94, 0.85)',
+            'rgba(245, 158, 11, 0.85)',
+            'rgba(99, 102, 241, 0.85)'
+          ],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, ticks: { callback: v => '₹' + v.toLocaleString('en-IN') } }
+        }
+      }
+    });
+  }
+
+  function exportCSV() {
+    const filtered = getFilteredTransactions();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "निर्यात करने के लिए कोई लेनदेन नहीं मिला।" : "No transactions found to export.");
+
+    let csv = "Date,Description,Type,Amount (INR)\n";
+    filtered.forEach(t => {
+      csv += `"${t.date || ''}","${t.description}","${t.type}",${t.amount}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `Overview_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportPDF() {
+    const filtered = getFilteredTransactions();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "निर्यात करने के लिए कोई लेनदेन नहीं मिला।" : "No transactions found to export.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(18);
+    doc.text("Financial Overview Report", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 28);
+
+    const tableRows = filtered.map(t => [
+      t.date || 'N/A',
+      t.description,
+      t.type.toUpperCase(),
+      `Rs. ${t.amount.toLocaleString('en-IN')}`
+    ]);
+
+    doc.autoTable({
+      startY: 35,
+      head: [['Date', 'Description', 'Type', 'Amount']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [2, 132, 199] }
+    });
+
+    doc.save(`Overview_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- BANK ACCOUNTS & DETAILED TRANSACTION LEDGER ---
+  function renderBanks() {
+    const list = document.getElementById('bank-list');
+    const bankSelect = document.getElementById('bank-tx-account');
+    list.innerHTML = '';
+    const selBankText = translations[currentLang]?.opt_sel_bank || "-- Select Bank Account --";
+    bankSelect.innerHTML = `<option value="">${selBankText}</option>`;
+
+    const totalBankBalance = banks.reduce((acc, b) => acc + b.balance, 0);
+
+    document.getElementById('total-bank-balance').innerText = formatINR(totalBankBalance);
+    document.getElementById('total-bank-count').innerText = banks.length;
+    document.getElementById('total-bank-tx-count').innerText = bankTransactions.length;
+
+    const editTxt = translations[currentLang]?.edit_btn || "Edit";
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+
+    banks.forEach((b, index) => {
+      const option = document.createElement('option');
+      option.value = b.name;
+      option.textContent = `${b.name} (Bal: ${formatINR(b.balance)})`;
+      bankSelect.appendChild(option);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="font-bold text-slate-800">${b.name}</td>
+        <td class="font-bold text-sky-600">${formatINR(b.balance)}</td>
+        <td>
+          <button onclick="openModal('bank', ${index})" class="btn-edit">${editTxt}</button>
+          <button onclick="deleteBank(${index})" class="btn-delete">${delTxt}</button>
+        </td>
+      `;
+      list.appendChild(tr);
+    });
+
+    renderBankTransactions();
+    renderOverview();
+  }
+
+  document.getElementById('bank-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('bank-name').value.trim();
+    const balance = parseFloat(document.getElementById('bank-balance').value);
+
+    if (banks.some(b => b.name.toLowerCase() === name.toLowerCase())) {
+      alert(currentLang === 'hi' ? "यह बैंक खाता पहले से मौजूद है!" : "This bank account already exists!");
+      return;
+    }
+
+    banks.push({ name, balance });
+    localStorage.setItem('inr_bank_accounts', JSON.stringify(banks));
+
+    this.reset();
+    renderBanks();
+  });
+
+  function deleteBank(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस बैंक खाते को हटाना चाहते हैं?" : "Are you sure you want to delete this bank account?")) {
+      banks.splice(index, 1);
+      localStorage.setItem('inr_bank_accounts', JSON.stringify(banks));
+      renderBanks();
+    }
+  }
+
+  document.getElementById('bank-tx-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const bankName = document.getElementById('bank-tx-account').value;
+    const date = document.getElementById('bank-tx-date').value;
+    const type = document.getElementById('bank-tx-type').value;
+    const amount = parseFloat(document.getElementById('bank-tx-amount').value);
+    const remarks = document.getElementById('bank-tx-remarks').value.trim();
+
+    const bankIndex = banks.findIndex(b => b.name === bankName);
+    if (bankIndex === -1) return alert(currentLang === 'hi' ? "अमान्य बैंक खाता!" : "Invalid bank account!");
+
+    if (type === 'credit') {
+      banks[bankIndex].balance += amount;
+    } else {
+      banks[bankIndex].balance -= amount;
+    }
+
+    bankTransactions.push({ date, bankName, type, amount, remarks });
+
+    localStorage.setItem('inr_bank_accounts', JSON.stringify(banks));
+    localStorage.setItem('inr_bank_transactions', JSON.stringify(bankTransactions));
+
+    this.reset();
+    document.getElementById('bank-tx-date').valueAsDate = new Date();
+    renderBanks();
+  });
+
+  function renderBankTransactions() {
+    const list = document.getElementById('bank-tx-list');
+    list.innerHTML = '';
+
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+
+    bankTransactions.slice().reverse().forEach((tx, reverseIdx) => {
+      const actualIndex = bankTransactions.length - 1 - reverseIdx;
+      const tr = document.createElement('tr');
+      const isCredit = tx.type === 'credit';
+      tr.innerHTML = `
+        <td>${tx.date}</td>
+        <td class="font-bold text-slate-800">${tx.bankName}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs font-bold ${isCredit ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${tx.type.toUpperCase()}</span></td>
+        <td class="font-bold ${isCredit ? 'text-emerald-600' : 'text-rose-600'}">${formatINR(tx.amount)}</td>
+        <td class="text-slate-600">${tx.remarks}</td>
+        <td><button onclick="deleteBankTransaction(${actualIndex})" class="btn-delete">${delTxt}</button></td>
+      `;
+      list.appendChild(tr);
+    });
+  }
+
+  function deleteBankTransaction(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस बैंक लेनदेन प्रविष्टि को हटाना चाहते हैं?" : "Are you sure you want to delete this bank transaction entry?")) {
+      const tx = bankTransactions[index];
+      const bankIndex = banks.findIndex(b => b.name === tx.bankName);
+
+      if (bankIndex !== -1) {
+        if (tx.type === 'credit') {
+          banks[bankIndex].balance -= tx.amount;
+        } else {
+          banks[bankIndex].balance += tx.amount;
+        }
+      }
+
+      bankTransactions.splice(index, 1);
+      localStorage.setItem('inr_bank_accounts', JSON.stringify(banks));
+      localStorage.setItem('inr_bank_transactions', JSON.stringify(bankTransactions));
+      renderBanks();
+    }
+  }
+
+  function exportBankPDF() {
+    if (!bankTransactions.length) return alert(currentLang === 'hi' ? "निर्यात करने के लिए कोई बैंक लेनदेन नहीं मिला।" : "No bank transactions found to export.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text("Bank Accounts & Credit/Debit Ledger Statement", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    let summaryY = 34;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text("Bank Account Balances:", 14, summaryY);
+
+    doc.setFont(undefined, 'normal');
+    banks.forEach(b => {
+      summaryY += 5;
+      doc.text(`${b.name}: Rs. ${b.balance.toLocaleString('en-IN')}`, 18, summaryY);
+    });
+
+    const tableRows = bankTransactions.map(tx => [
+      tx.date,
+      tx.bankName,
+      tx.type.toUpperCase(),
+      `Rs. ${tx.amount.toLocaleString('en-IN')}`,
+      tx.remarks
+    ]);
+
+    doc.autoTable({
+      startY: summaryY + 8,
+      head: [['Date', 'Bank Account', 'Type', 'Amount', 'Remarks / Details']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [2, 132, 199] }
+    });
+
+    doc.save(`Bank_Ledger_Statement_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- INCOME & EXPENSE TRACKER ---
+  function renderTransactions() {
+    const list = document.getElementById('transaction-list');
+    list.innerHTML = '';
+
+    const totalIncome = transactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const totalExpense = transactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+    const totalBalance = totalIncome - totalExpense;
+
+    document.getElementById('total-balance').innerText = formatINR(totalBalance);
+    document.getElementById('total-income').innerText = formatINR(totalIncome);
+    document.getElementById('total-expense').innerText = formatINR(totalExpense);
+
+    const editTxt = translations[currentLang]?.edit_btn || "Edit";
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+
+    transactions.slice().reverse().forEach((t, reverseIdx) => {
+      const actualIndex = transactions.length - 1 - reverseIdx;
+      const tr = document.createElement('tr');
+      const isIncome = t.type === 'income';
+
+      tr.innerHTML = `
+        <td>${t.date || 'N/A'}</td>
+        <td class="font-semibold text-slate-800">${t.description}</td>
+        <td><span class="px-2 py-0.5 rounded text-xs font-bold ${isIncome ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${t.type.toUpperCase()}</span></td>
+        <td class="font-bold ${isIncome ? 'text-emerald-600' : 'text-rose-600'}">${formatINR(t.amount)}</td>
+        <td>
+          <button onclick="openModal('tracker', ${actualIndex})" class="btn-edit">${editTxt}</button>
+          <button onclick="deleteTransaction(${actualIndex})" class="btn-delete">${delTxt}</button>
+        </td>
+      `;
+      list.appendChild(tr);
+    });
+
+    renderOverview();
+  }
+
+  document.getElementById('tracker-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const description = document.getElementById('description').value.trim();
+    const amount = parseFloat(document.getElementById('amount').value);
+    const type = document.getElementById('type').value;
+    const date = document.getElementById('tracker-date').value;
+
+    transactions.push({ description, amount, type, date });
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+
+    this.reset();
+    document.getElementById('tracker-date').valueAsDate = new Date();
+    renderTransactions();
+  });
+
+  function deleteTransaction(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस लेनदेन को हटाना चाहते हैं?" : "Are you sure you want to delete this transaction?")) {
+      transactions.splice(index, 1);
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+      renderTransactions();
+    }
+  }
+
+  function getFilteredTrackerData() {
+    const reportType = document.getElementById('tracker-report-type').value;
+    const reportPeriod = document.getElementById('tracker-report-period').value;
+    const now = new Date();
+
+    return transactions.filter(t => {
+      let matchesType = (reportType === 'all') || (t.type === reportType);
+
+      const tDate = t.date ? new Date(t.date) : new Date();
+      let matchesPeriod = true;
+
+      if (reportPeriod === 'monthly') {
+        matchesPeriod = tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+      } else if (reportPeriod === 'quarterly') {
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const tQuarter = Math.floor(tDate.getMonth() / 3);
+        matchesPeriod = currentQuarter === tQuarter && tDate.getFullYear() === now.getFullYear();
+      } else if (reportPeriod === 'half-yearly') {
+        const sixMonthsAgo = new Date(now);
+        sixMonthsAgo.setMonth(now.getMonth() - 6);
+        matchesPeriod = tDate >= sixMonthsAgo;
+      } else if (reportPeriod === 'yearly') {
+        matchesPeriod = tDate.getFullYear() === now.getFullYear();
+      }
+
+      return matchesType && matchesPeriod;
+    });
+  }
+
+  function exportTrackerCSV() {
+    const filtered = getFilteredTrackerData();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई डेटा नहीं मिला।" : "No data found for the selected filters.");
+
+    let csv = "Date,Description,Type,Amount (INR)\n";
+    filtered.forEach(t => {
+      csv += `"${t.date || ''}","${t.description}","${t.type}",${t.amount}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `Tracker_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportCustomTrackerPDF() {
+    const filtered = getFilteredTrackerData();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई डेटा नहीं मिला।" : "No data found for the selected filters.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text("Filtered Income & Expense Tracker Report", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    const totalInc = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+    const totalExp = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+    doc.setFontSize(10);
+    doc.text(`Total Credit / Income: Rs. ${totalInc.toLocaleString('en-IN')}  |  Total Expense: Rs. ${totalExp.toLocaleString('en-IN')}  |  Net: Rs. ${(totalInc - totalExp).toLocaleString('en-IN')}`, 14, 34);
+
+    const tableRows = filtered.map(t => [
+      t.date || 'N/A',
+      t.description,
+      t.type.toUpperCase(),
+      `Rs. ${t.amount.toLocaleString('en-IN')}`
+    ]);
+
+    doc.autoTable({
+      startY: 40,
+      head: [['Date', 'Description', 'Type', 'Amount']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [2, 132, 199] }
+    });
+
+    doc.save(`Filtered_Tracker_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- INVESTMENT PORTFOLIO ---
+  function renderInvestments() {
+    const list = document.getElementById('investment-list');
+    list.innerHTML = '';
+
+    let totalPrincipal = 0;
+    let totalAnnualGain = 0;
+    let totalMaturity = 0;
+
+    const editTxt = translations[currentLang]?.edit_btn || "Edit";
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+
+    investments.forEach((inv, index) => {
+      const days = calculateDays(inv.startDate, inv.maturityDate);
+      const tenureYears = days / 365;
+      const annualGain = inv.principal * (inv.rate / 100);
+      const estimatedInterest = annualGain * tenureYears;
+      const finalAmount = inv.principal + estimatedInterest;
+
+      inv.annualGain = annualGain;
+      inv.finalAmount = finalAmount;
+
+      totalPrincipal += inv.principal;
+      totalAnnualGain += annualGain;
+      totalMaturity += finalAmount;
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="font-bold text-slate-800">${inv.name}</td>
+        <td class="font-semibold text-slate-700">${formatINR(inv.principal)}</td>
+        <td class="font-semibold text-teal-700">${inv.rate}% p.a.</td>
+        <td class="font-bold text-emerald-600">${formatINR(annualGain)}</td>
+        <td>${inv.startDate}</td>
+        <td>${inv.maturityDate}</td>
+        <td class="font-bold text-sky-600">${formatINR(finalAmount)}</td>
+        <td>
+          <button onclick="openModal('investment', ${index})" class="btn-edit">${editTxt}</button>
+          <button onclick="deleteInvestment(${index})" class="btn-delete">${delTxt}</button>
+        </td>
+      `;
+      list.appendChild(tr);
+    });
+
+    localStorage.setItem('inr_v4_investments', JSON.stringify(investments));
+
+    document.getElementById('inv-total-principal').innerText = formatINR(totalPrincipal);
+    document.getElementById('inv-total-annual-gain').innerText = `${formatINR(totalAnnualGain)} / yr`;
+    document.getElementById('inv-total-maturity').innerText = formatINR(totalMaturity);
+
+    renderOverview();
+  }
+
+  document.getElementById('investment-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('inv-name').value.trim();
+    const principal = parseFloat(document.getElementById('inv-principal').value);
+    const rate = parseFloat(document.getElementById('inv-rate').value);
+    const startDate = document.getElementById('inv-start-date').value;
+    const maturityDate = document.getElementById('inv-maturity-date').value;
+
+    if (new Date(maturityDate) <= new Date(startDate)) {
+      alert(currentLang === 'hi' ? "परिपक्वता तिथि प्रारंभ तिथि के बाद की होनी चाहिए!" : "Maturity date must be after start date!");
+      return;
+    }
+
+    investments.push({ name, principal, rate, startDate, maturityDate });
+
+    this.reset();
+    document.getElementById('inv-start-date').valueAsDate = new Date();
+    renderInvestments();
+  });
+
+  function deleteInvestment(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस निवेश रिकॉर्ड को हटाना चाहते हैं?" : "Are you sure you want to delete this investment record?")) {
+      investments.splice(index, 1);
+      renderInvestments();
+    }
+  }
+
+  function exportInvestmentPDF() {
+    if (!investments.length) return alert(currentLang === 'hi' ? "निर्यात करने के लिए कोई निवेश डेटा नहीं मिला।" : "No investment data found to export.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text("Investment Portfolio Summary Report", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    const tableRows = investments.map(inv => [
+      inv.name,
+      `Rs. ${inv.principal.toLocaleString('en-IN')}`,
+      `${inv.rate}% p.a.`,
+      `Rs. ${(inv.annualGain || 0).toLocaleString('en-IN')}`,
+      inv.startDate,
+      inv.maturityDate,
+      `Rs. ${(inv.finalAmount || 0).toLocaleString('en-IN')}`
+    ]);
+
+    doc.autoTable({
+      startY: 33,
+      head: [['Investment Name', 'Principal', 'Rate %', 'Est. Annual Gain', 'Start Date', 'Maturity Date', 'Est. Maturity Value']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [13, 148, 136] }
+    });
+
+    doc.save(`Investment_Portfolio_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- BORROWER DETAILS SECTION (KARJ DIYA) ---
+  function getFilteredLendings() {
+    const nameSearch = (document.getElementById('searchBorrowerName').value || '').toLowerCase().trim();
+    const statusFilter = document.getElementById('borrower-filter-status').value;
+    const periodFilter = document.getElementById('borrower-filter-period').value;
+    const now = new Date();
+
+    return lendings.filter(l => {
+      let matchesName = l.person.toLowerCase().includes(nameSearch);
+
+      let isCleared = (l.remainingBalance || 0) <= 0;
+      let matchesStatus = true;
+      if (statusFilter === 'pending') matchesStatus = !isCleared;
+      if (statusFilter === 'cleared') matchesStatus = isCleared;
+
+      let matchesPeriod = true;
+      const lDate = l.startDate ? new Date(l.startDate) : new Date();
+
+      if (periodFilter === 'monthly') {
+        matchesPeriod = lDate.getMonth() === now.getMonth() && lDate.getFullYear() === now.getFullYear();
+      } else if (periodFilter === 'quarterly') {
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const lQuarter = Math.floor(lDate.getMonth() / 3);
+        matchesPeriod = currentQuarter === lQuarter && lDate.getFullYear() === now.getFullYear();
+      } else if (periodFilter === 'yearly') {
+        matchesPeriod = lDate.getFullYear() === now.getFullYear();
+      }
+
+      return matchesName && matchesStatus && matchesPeriod;
+    });
+  }
+
+  function renderLendings() {
+    const list = document.getElementById('lending-list');
+    list.innerHTML = '';
+
+    const filtered = getFilteredLendings();
+
+    let topGivenPrincipal = 0;
+    let topAccruedInterest = 0;
+    let topCollectedInterest = 0;
+
+    const editTxt = translations[currentLang]?.edit_btn || "Edit";
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+    const viewDepsTxt = translations[currentLang]?.view_deps_btn || "View Deposits";
+
+    lendings.forEach((l, actualIndex) => {
+      if (!l.deposits) l.deposits = [];
+
+      const totalPrincipalPaid = l.deposits.reduce((acc, d) => acc + (parseFloat(d.principal) || 0), 0);
+      const totalInterestPaid = l.deposits.reduce((acc, d) => acc + (parseFloat(d.interest) || 0), 0);
+
+      const days = calculateDays(l.startDate, l.endDate);
+      const tenureMonths = days / 30.4375;
+      const accruedInterest = l.principal * (l.monthlyRate / 100) * tenureMonths;
+      const totalReceivable = l.principal + accruedInterest;
+
+      const remainingPrincipal = Math.max(0, l.principal - totalPrincipalPaid);
+      const remainingInterest = Math.max(0, accruedInterest - totalInterestPaid);
+      const remainingTotalBalance = remainingPrincipal + remainingInterest;
+
+      l.accruedInterest = accruedInterest;
+      l.totalReceivable = totalReceivable;
+      l.totalPrincipalPaid = totalPrincipalPaid;
+      l.totalInterestPaid = totalInterestPaid;
+      l.remainingBalance = remainingTotalBalance;
+
+      topGivenPrincipal += l.principal;
+      topAccruedInterest += accruedInterest;
+      topCollectedInterest += totalInterestPaid;
+
+      if (filtered.some(f => f === l)) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="font-bold text-slate-800">${l.person}</td>
+          <td class="font-semibold text-slate-700">${formatINR(l.principal)}</td>
+          <td class="font-semibold text-amber-700">${l.monthlyRate}% p.m.</td>
+          <td class="text-xs text-slate-500">${days} days</td>
+          <td class="font-bold text-rose-600">${formatINR(accruedInterest)}</td>
+          <td class="font-bold text-slate-900">${formatINR(totalReceivable)}</td>
+          <td class="font-semibold text-emerald-600">${formatINR(totalPrincipalPaid)}</td>
+          <td class="font-semibold text-emerald-600">${formatINR(totalInterestPaid)}</td>
+          <td class="font-bold ${remainingTotalBalance <= 0 ? 'text-emerald-600' : 'text-amber-600'}">${formatINR(remainingTotalBalance)}</td>
+          <td>
+            <button onclick="openDepositModal(${actualIndex})" class="btn-view">${viewDepsTxt}</button>
+            <button onclick="openModal('lending', ${actualIndex})" class="btn-edit">${editTxt}</button>
+            <button onclick="deleteLending(${actualIndex})" class="btn-delete">${delTxt}</button>
+          </td>
+        `;
+        list.appendChild(tr);
+      }
+    });
+
+    localStorage.setItem('inr_v8_lendings', JSON.stringify(lendings));
+
+    document.getElementById('borrower-top-principal').innerText = formatINR(topGivenPrincipal);
+    document.getElementById('borrower-top-interest').innerText = formatINR(topAccruedInterest);
+    document.getElementById('borrower-top-rec-interest').innerText = formatINR(topCollectedInterest);
+
+    renderOverview();
+  }
+
+  document.getElementById('lending-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const person = document.getElementById('lend-person').value.trim();
+    const principal = parseFloat(document.getElementById('lend-principal').value);
+    const monthlyRate = parseFloat(document.getElementById('lend-rate').value);
+    const startDate = document.getElementById('lend-start-date').value;
+    const endDate = document.getElementById('lend-end-date').value;
+
+    if (new Date(endDate) <= new Date(startDate)) {
+      alert(currentLang === 'hi' ? "समाप्ति तिथि प्रारंभ तिथि के बाद की होनी चाहिए!" : "End date must be after start date!");
+      return;
+    }
+
+    lendings.push({ person, principal, monthlyRate, startDate, endDate, deposits: [] });
+
+    this.reset();
+    document.getElementById('lend-start-date').valueAsDate = new Date();
+    renderLendings();
+  });
+
+  function deleteLending(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस उधारकर्ता खाते को हटाना चाहते हैं?" : "Are you sure you want to delete this borrower account?")) {
+      lendings.splice(index, 1);
+      renderLendings();
+    }
+  }
+
+  function exportFilteredLendingCSV() {
+    const filtered = getFilteredLendings();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई उधारकर्ता नहीं मिला।" : "No borrowers found for the selected filters.");
+
+    let csv = "Borrower,Given Principal,Monthly Rate %,Accrued Interest,Total Receivable,Rec. Principal,Rec. Interest,Remaining Total Balance\n";
+    filtered.forEach(l => {
+      csv += `"${l.person}",${l.principal},${l.monthlyRate},${l.accruedInterest},${l.totalReceivable},${l.totalPrincipalPaid},${l.totalInterestPaid},${l.remainingBalance}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `Borrowers_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportFilteredLendingPDF() {
+    const filtered = getFilteredLendings();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई उधारकर्ता नहीं मिला।" : "No borrowers found for the selected filters.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text("Filtered Borrower Statement Report (Karj Diya)", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    const tableRows = filtered.map(l => [
+      l.person,
+      `Rs. ${l.principal.toLocaleString('en-IN')}`,
+      `${l.monthlyRate}%`,
+      `Rs. ${Math.round(l.accruedInterest).toLocaleString('en-IN')}`,
+      `Rs. ${Math.round(l.totalReceivable).toLocaleString('en-IN')}`,
+      `Rs. ${Math.round(l.totalPrincipalPaid).toLocaleString('en-IN')}`,
+      `Rs. ${Math.round(l.totalInterestPaid).toLocaleString('en-IN')}`,
+      `Rs. ${Math.round(l.remainingBalance).toLocaleString('en-IN')}`
+    ]);
+
+    doc.autoTable({
+      startY: 33,
+      head: [['Borrower', 'Given Principal', 'Monthly %', 'Accrued Interest', 'Total Receivable', 'Rec. Principal', 'Rec. Interest', 'Remaining Bal']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [217, 119, 6] }
+    });
+
+    doc.save(`Filtered_Borrower_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- BORROWER DEPOSIT / REPAYMENT MODAL FUNCTIONS ---
+  function openDepositModal(index) {
+    const l = lendings[index];
+    document.getElementById('deposit-borrower-index').value = index;
+    document.getElementById('depositModalTitle').innerText = `${l.person} - Repayment History`;
+
+    const btnExport = document.getElementById('btn-export-single-pdf');
+    btnExport.onclick = () => exportSingleBorrowerPDF(index);
+
+    renderDepositHistory(index);
+    document.getElementById('depositModal').classList.remove('hidden');
+  }
+
+  function closeDepositModal() {
+    document.getElementById('depositModal').classList.add('hidden');
+  }
+
+  function renderDepositHistory(index) {
+    const l = lendings[index];
+    const list = document.getElementById('deposit-history-list');
+    list.innerHTML = '';
+
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+
+    l.deposits.forEach((dep, depIdx) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${dep.date}</td>
+        <td class="font-bold text-emerald-600">${formatINR(dep.principal)}</td>
+        <td class="font-bold text-indigo-600">${formatINR(dep.interest)}</td>
+        <td class="text-slate-600">${dep.remarks}</td>
+        <td><button onclick="deleteBorrowerDeposit(${index}, ${depIdx})" class="btn-delete">${delTxt}</button></td>
+      `;
+      list.appendChild(tr);
+    });
+  }
+
+  function addBorrowerDeposit(e) {
+    e.preventDefault();
+    const index = parseInt(document.getElementById('deposit-borrower-index').value);
+    const date = document.getElementById('dep-date').value;
+    const principal = parseFloat(document.getElementById('dep-principal').value) || 0;
+    const interest = parseFloat(document.getElementById('dep-interest').value) || 0;
+    const remarks = document.getElementById('dep-remarks').value.trim();
+
+    if (principal <= 0 && interest <= 0) {
+      alert(currentLang === 'hi' ? "कृपया मूलधन या ब्याज राशि दर्ज करें!" : "Please enter either principal or interest amount!");
+      return;
+    }
+
+    lendings[index].deposits.push({ date, principal, interest, remarks });
+
+    document.getElementById('dep-principal').value = '0';
+    document.getElementById('dep-interest').value = '0';
+    document.getElementById('dep-remarks').value = '';
+    document.getElementById('dep-date').valueAsDate = new Date();
+
+    renderLendings();
+    renderDepositHistory(index);
+  }
+
+  function deleteBorrowerDeposit(borrowerIdx, depositIdx) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस पुनर्भुगतान प्रविष्टि को हटाना चाहते हैं?" : "Are you sure you want to delete this repayment entry?")) {
+      lendings[borrowerIdx].deposits.splice(depositIdx, 1);
+      renderLendings();
+      renderDepositHistory(borrowerIdx);
+    }
+  }
+
+  function exportSingleBorrowerPDF(index) {
+    const l = lendings[index];
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text(`Borrower Detailed Statement: ${l.person}`, 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    doc.setFontSize(10);
+    doc.text(`Given Principal: Rs. ${l.principal.toLocaleString('en-IN')}  |  Monthly Rate: ${l.monthlyRate}%`, 14, 34);
+    doc.text(`Accrued Interest: Rs. ${Math.round(l.accruedInterest).toLocaleString('en-IN')}  |  Total Rec: Rs. ${Math.round(l.totalReceivable).toLocaleString('en-IN')}`, 14, 40);
+    doc.text(`Remaining Balance: Rs. ${Math.round(l.remainingBalance).toLocaleString('en-IN')}`, 14, 46);
+
+    const tableRows = l.deposits.map(d => [
+      d.date,
+      `Rs. ${d.principal.toLocaleString('en-IN')}`,
+      `Rs. ${d.interest.toLocaleString('en-IN')}`,
+      d.remarks
+    ]);
+
+    doc.autoTable({
+      startY: 52,
+      head: [['Deposit Date', 'Principal Paid', 'Interest Paid', 'Remarks / Details']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [2, 132, 199] }
+    });
+
+    doc.save(`Borrower_Statement_${l.person.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- BORROWING DETAILS SECTION (KARJ LIYA) ---
+  function getFilteredBorrowings() {
+    const nameSearch = (document.getElementById('searchBorrowingName').value || '').toLowerCase().trim();
+    const periodFilter = document.getElementById('borrowing-filter-period').value;
+    const startDateFilter = document.getElementById('borrowing-filter-start-date').value;
+    const interestDateFilter = document.getElementById('borrowing-filter-interest-date').value;
+    const now = new Date();
+
+    return borrowings.filter(b => {
+      let matchesName = b.person.toLowerCase().includes(nameSearch);
+
+      let matchesPeriod = true;
+      const bDate = b.startDate ? new Date(b.startDate) : new Date();
+
+      if (periodFilter === 'monthly') {
+        matchesPeriod = bDate.getMonth() === now.getMonth() && bDate.getFullYear() === now.getFullYear();
+      } else if (periodFilter === 'quarterly') {
+        const currentQuarter = Math.floor(now.getMonth() / 3);
+        const bQuarter = Math.floor(bDate.getMonth() / 3);
+        matchesPeriod = currentQuarter === bQuarter && bDate.getFullYear() === now.getFullYear();
+      } else if (periodFilter === 'yearly') {
+        matchesPeriod = bDate.getFullYear() === now.getFullYear();
+      }
+
+      let matchesStartDate = true;
+      if (startDateFilter) {
+        matchesStartDate = b.startDate === startDateFilter;
+      }
+
+      let matchesInterestDate = true;
+      if (interestDateFilter) {
+        matchesInterestDate = b.endDate === interestDateFilter;
+      }
+
+      return matchesName && matchesPeriod && matchesStartDate && matchesInterestDate;
+    });
+  }
+
+  function toggleSelectAllBorrowings(masterCert) {
+    const filtered = getFilteredBorrowings();
+    if (masterCert.checked) {
+      selectedBorrowingIndices = filtered.map(b => borrowings.indexOf(b));
+    } else {
+      selectedBorrowingIndices = [];
+    }
+    renderBorrowings();
+  }
+
+  function toggleBorrowingSelection(index) {
+    const pos = selectedBorrowingIndices.indexOf(index);
+    if (pos > -1) {
+      selectedBorrowingIndices.splice(pos, 1);
+    } else {
+      selectedBorrowingIndices.push(index);
+    }
+    renderBorrowings();
+  }
+
+  function renderBorrowings() {
+    const list = document.getElementById('borrowing-list');
+    list.innerHTML = '';
+
+    const filtered = getFilteredBorrowings();
+
+    let totalPrincipalTaken = 0;
+    let totalAccruedInterestPayable = 0;
+    let totalPayableAmount = 0;
+
+    const editTxt = translations[currentLang]?.edit_btn || "Edit";
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+
+    borrowings.forEach((b, actualIndex) => {
+      const days = calculateDays(b.startDate, b.endDate);
+      const tenureMonths = days / 30.4375;
+      const accruedInterest = b.principal * (b.monthlyRate / 100) * tenureMonths;
+      const totalPayable = b.principal + accruedInterest;
+
+      b.accruedInterest = accruedInterest;
+      b.totalPayable = totalPayable;
+
+      totalPrincipalTaken += b.principal;
+      totalAccruedInterestPayable += accruedInterest;
+      totalPayableAmount += totalPayable;
+
+      if (filtered.some(f => f === b)) {
+        const tr = document.createElement('tr');
+        const isChecked = selectedBorrowingIndices.includes(actualIndex);
+        const monthsVal = Math.floor(tenureMonths);
+        const daysVal = Math.round((tenureMonths - monthsVal) * 30.4375);
+        let tenureText = `${days} days`;
+        if (monthsVal > 0) {
+          tenureText += ` (${monthsVal} months${daysVal > 0 ? ' ' + daysVal + ' days' : ''})`;
+        } else {
+          tenureText += ` (0 months)`;
+        }
+
+        tr.innerHTML = `
+          <td style="text-align: center;"><input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleBorrowingSelection(${actualIndex})"></td>
+          <td class="font-bold text-slate-800">${b.person}</td>
+          <td class="font-semibold text-rose-700">${formatINR(b.principal)}</td>
+          <td class="font-semibold text-amber-700">${b.monthlyRate}% p.m.</td>
+          <td>${b.startDate}</td>
+          <td>${b.endDate}</td>
+          <td class="text-xs text-slate-500">${tenureText}</td>
+          <td class="font-bold text-amber-600">${formatINR(accruedInterest)}</td>
+          <td class="font-bold text-rose-600">${formatINR(totalPayable)}</td>
+          <td>
+            <button onclick="openModal('borrowing', ${actualIndex})" class="btn-edit">${editTxt}</button>
+            <button onclick="deleteBorrowing(${actualIndex})" class="btn-delete">${delTxt}</button>
+          </td>
+        `;
+        list.appendChild(tr);
+      }
+    });
+
+    const masterCheckbox = document.getElementById('select-all-borrowings');
+    if (masterCheckbox) {
+      masterCheckbox.checked = filtered.length > 0 && filtered.every(b => selectedBorrowingIndices.includes(borrowings.indexOf(b)));
+    }
+
+    localStorage.setItem('inr_v8_borrowings', JSON.stringify(borrowings));
+
+    document.getElementById('borrowing-top-principal').innerText = formatINR(totalPrincipalTaken);
+    document.getElementById('borrowing-top-interest').innerText = formatINR(totalAccruedInterestPayable);
+    document.getElementById('borrowing-top-total-payable').innerText = formatINR(totalPayableAmount);
+
+    renderOverview();
+  }
+
+  document.getElementById('borrowing-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const person = document.getElementById('borrow-person').value.trim();
+    const principal = parseFloat(document.getElementById('borrow-principal').value);
+    const monthlyRate = parseFloat(document.getElementById('borrow-rate').value);
+    const startDate = document.getElementById('borrow-start-date').value;
+    const endDate = document.getElementById('borrow-end-date').value;
+
+    if (new Date(endDate) <= new Date(startDate)) {
+      alert(currentLang === 'hi' ? "नियत तिथि देने की तिथि के बाद की होनी चाहिए!" : "Due date must be after given date!");
+      return;
+    }
+
+    borrowings.push({ person, principal, monthlyRate, startDate, endDate });
+
+    this.reset();
+    document.getElementById('borrow-start-date').valueAsDate = new Date();
+    renderBorrowings();
+  });
+
+  function deleteBorrowing(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस ऋण रिकॉर्ड को हटाना चाहते हैं?" : "Are you sure you want to delete this borrowing record?")) {
+      borrowings.splice(index, 1);
+      const pos = selectedBorrowingIndices.indexOf(index);
+      if (pos > -1) selectedBorrowingIndices.splice(pos, 1);
+      renderBorrowings();
+    }
+  }
+
+  function exportFilteredBorrowingCSV() {
+    let filtered = getFilteredBorrowings();
+    if (selectedBorrowingIndices.length > 0) {
+      filtered = filtered.filter(b => selectedBorrowingIndices.includes(borrowings.indexOf(b)));
+    }
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई ऋण रिकॉर्ड नहीं मिला।" : "No borrowing records found for the selected filters.");
+
+    let csv = "Lender/Source,Principal Taken,Monthly Rate %,Amount Given Date,Due Date,Tenure (Days),Accrued Interest Payable,Total Payable\n";
+    filtered.forEach(b => {
+      const days = calculateDays(b.startDate, b.endDate);
+      csv += `"${b.person}",${b.principal},${b.monthlyRate},"${b.startDate}","${b.endDate}",${days},${b.accruedInterest},${b.totalPayable}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `Borrowings_Report_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportFilteredBorrowingPDF() {
+    let filtered = getFilteredBorrowings();
+    if (selectedBorrowingIndices.length > 0) {
+      filtered = filtered.filter(b => selectedBorrowingIndices.includes(borrowings.indexOf(b)));
+    }
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई ऋण रिकॉर्ड नहीं मिला।" : "No borrowing records found for the selected filters.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape');
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text("Filtered Borrowing Details Report (Karj Liya)", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    const tableRows = filtered.map(b => {
+      const days = calculateDays(b.startDate, b.endDate);
+      const tenureMonths = days / 30.4375;
+      const monthsVal = Math.floor(tenureMonths);
+      const daysVal = Math.round((tenureMonths - monthsVal) * 30.4375);
+      let tenureText = `${days} days`;
+      if (monthsVal > 0) {
+        tenureText += ` (${monthsVal}m ${daysVal > 0 ? daysVal + 'd' : ''})`;
+      } else {
+        tenureText += ` (0m)`;
+      }
+
+      return [
+        b.person,
+        `Rs. ${b.principal.toLocaleString('en-IN')}`,
+        `${b.monthlyRate}%`,
+        b.startDate,
+        b.endDate,
+        tenureText,
+        `Rs. ${Math.round(b.accruedInterest).toLocaleString('en-IN')}`,
+        `Rs. ${Math.round(b.totalPayable).toLocaleString('en-IN')}`
+      ];
+    });
+
+    doc.autoTable({
+      startY: 33,
+      head: [['Lender / Source', 'Principal Taken', 'Monthly %', 'Given Date', 'Due Date', 'Tenure', 'Accrued Interest', 'Total Payable']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [220, 38, 38] }
+    });
+
+    doc.save(`Filtered_Borrowings_Report_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- RECURRING EXPENDITURE SECTION ---
+  function getFilteredRecurringData() {
+    const statusFilter = document.getElementById('rec-filter-status').value;
+    const periodFilter = document.getElementById('rec-filter-period').value;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return recurrings.filter(r => {
+      let matchesStatus = true;
+      if (statusFilter === 'paid') matchesStatus = (r.status === 'paid');
+      if (statusFilter === 'unpaid') matchesStatus = (r.status === 'unpaid');
+
+      let matchesPeriod = true;
+      const dueDate = new Date(r.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+
+      if (periodFilter === 'overdue') {
+        matchesPeriod = (dueDate < today && r.status === 'unpaid');
+      } else if (periodFilter === '7days') {
+        const diffTime = dueDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        matchesPeriod = (diffDays >= 0 && diffDays <= 7);
+      } else if (periodFilter === 'monthly') {
+        matchesPeriod = (dueDate.getMonth() === today.getMonth() && dueDate.getFullYear() === today.getFullYear());
+      } else if (periodFilter === 'quarterly') {
+        const currentQuarter = Math.floor(today.getMonth() / 3);
+        const rQuarter = Math.floor(dueDate.getMonth() / 3);
+        matchesPeriod = (currentQuarter === rQuarter && dueDate.getFullYear() === today.getFullYear());
+      } else if (periodFilter === 'yearly') {
+        matchesPeriod = (dueDate.getFullYear() === today.getFullYear());
+      }
+
+      return matchesStatus && matchesPeriod;
+    });
+  }
+
+  function renderRecurring() {
+    const list = document.getElementById('recurring-list');
+    list.innerHTML = '';
+
+    const filtered = getFilteredRecurringData();
+
+    let totalMonthlyCost = 0;
+    let totalAnnualCost = 0;
+
+    const editTxt = translations[currentLang]?.edit_btn || "Edit";
+    const delTxt = translations[currentLang]?.delete_btn || "Delete";
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    recurrings.forEach((r, actualIndex) => {
+      let monthlyMultiplier = 1;
+      let annualMultiplier = 12;
+
+      if (r.frequency === 'quarterly') {
+        monthlyMultiplier = 1 / 3;
+        annualMultiplier = 4;
+      } else if (r.frequency === 'yearly') {
+        monthlyMultiplier = 1 / 12;
+        annualMultiplier = 1;
+      }
+
+      totalMonthlyCost += (r.amount * monthlyMultiplier);
+      totalAnnualCost += (r.amount * annualMultiplier);
+
+      if (filtered.some(f => f === r)) {
+        const dueDate = new Date(r.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+
+        let statusTag = '';
+        if (r.status === 'paid') {
+          statusTag = `<span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700">PAID</span>`;
+        } else {
+          if (dueDate < today) {
+            statusTag = `<span class="px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-700">OVERDUE</span>`;
+          } else {
+            statusTag = `<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-700">UNPAID</span>`;
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="font-bold text-slate-800">${r.name}</td>
+          <td class="font-semibold text-indigo-600 capitalize">${r.frequency}</td>
+          <td class="font-bold text-slate-900">${formatINR(r.amount)}</td>
+          <td>${r.dueDate}</td>
+          <td>${statusTag}</td>
+          <td class="text-xs">${r.status === 'paid' ? 'Completed' : (dueDate < today ? 'Attention Required' : 'Upcoming')}</td>
+          <td class="text-slate-600">${r.remarks}</td>
+          <td>
+            <button onclick="openModal('recurring', ${actualIndex})" class="btn-edit">${editTxt}</button>
+            <button onclick="deleteRecurring(${actualIndex})" class="btn-delete">${delTxt}</button>
+          </td>
+        `;
+        list.appendChild(tr);
+      }
+    });
+
+    localStorage.setItem('inr_recurring_expenditures', JSON.stringify(recurrings));
+
+    document.getElementById('rec-total-count').innerText = recurrings.length;
+    document.getElementById('rec-total-monthly-cost').innerText = formatINR(totalMonthlyCost);
+    document.getElementById('rec-total-annual-cost').innerText = formatINR(totalAnnualCost);
+
+    renderOverview();
+  }
+
+  document.getElementById('recurring-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('rec-name').value.trim();
+    const frequency = document.getElementById('rec-frequency').value;
+    const amount = parseFloat(document.getElementById('rec-amount').value);
+    const dueDate = document.getElementById('rec-duedate').value;
+    const status = document.getElementById('rec-status').value;
+    const remarks = document.getElementById('rec-remarks').value.trim();
+
+    recurrings.push({ name, frequency, amount, dueDate, status, remarks });
+
+    this.reset();
+    document.getElementById('rec-duedate').valueAsDate = new Date();
+    renderRecurring();
+  });
+
+  function deleteRecurring(index) {
+    if (confirm(currentLang === 'hi' ? "क्या आप इस आवर्ती व्यय रिकॉर्ड को हटाना चाहते हैं?" : "Are you sure you want to delete this recurring expenditure record?")) {
+      recurrings.splice(index, 1);
+      renderRecurring();
+    }
+  }
+
+  function exportRecurringPDF() {
+    const filtered = getFilteredRecurringData();
+    if (!filtered.length) return alert(currentLang === 'hi' ? "चुने गए फ़िल्टर के लिए कोई आवर्ती व्यय नहीं मिला।" : "No recurring expenditures found for the selected filters.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    addPdfOwnerHeader(doc);
+
+    doc.setFontSize(16);
+    doc.text("Recurring Expenditure Summary Report", 14, 20);
+
+    doc.setFontSize(9);
+    doc.text(`Generated Date: ${new Date().toLocaleString('en-IN')}`, 14, 27);
+
+    const tableRows = filtered.map(r => [
+      r.name,
+      r.frequency.toUpperCase(),
+      `Rs. ${r.amount.toLocaleString('en-IN')}`,
+      r.dueDate,
+      r.status.toUpperCase(),
+      r.remarks
+    ]);
+
+    doc.autoTable({
+      startY: 33,
+      head: [['Expenditure Name', 'Frequency', 'Amount', 'Next Due Date', 'Status', 'Remarks']],
+      body: tableRows,
+      theme: 'striped',
+      headStyles: { fillColor: [139, 92, 246] }
+    });
+
+    doc.save(`Recurring_Expenditure_${new Date().toISOString().slice(0,10)}.pdf`);
+  }
+
+  // --- GLOBAL EDIT MODAL HANDLERS ---
+  function openModal(category, index) {
+    document.getElementById('edit-category').value = category;
+    document.getElementById('edit-index').value = index;
+
+    const rateCont = document.getElementById('edit-rate-container');
+    const typeCont = document.getElementById('edit-type-container');
+    const freqCont = document.getElementById('edit-freq-container');
+    const statusCont = document.getElementById('edit-status-container');
+    const date1Cont = document.getElementById('edit-date1-container');
+    const date2Cont = document.getElementById('edit-date2-container');
+    const remarksCont = document.getElementById('edit-remarks-container');
+
+    rateCont.classList.add('hidden');
+    typeCont.classList.add('hidden');
+    freqCont.classList.add('hidden');
+    statusCont.classList.add('hidden');
+    date1Cont.classList.add('hidden');
+    date2Cont.classList.add('hidden');
+    remarksCont.classList.add('hidden');
+
+    if (category === 'bank') {
+      const b = banks[index];
+      document.getElementById('modalTitle').innerText = "Edit Bank Account";
+      document.getElementById('edit-name').value = b.name;
+      document.getElementById('edit-principal').value = b.balance;
+    } else if (category === 'tracker') {
+      const t = transactions[index];
+      document.getElementById('modalTitle').innerText = "Edit Transaction";
+      document.getElementById('edit-name').value = t.description;
+      document.getElementById('edit-principal').value = t.amount;
+      document.getElementById('edit-type').value = t.type;
+      document.getElementById('edit-date1').value = t.date || '';
+      typeCont.classList.remove('hidden');
+      date1Cont.classList.remove('hidden');
+    } else if (category === 'investment') {
+      const inv = investments[index];
+      document.getElementById('modalTitle').innerText = "Edit Investment";
+      document.getElementById('edit-name').value = inv.name;
+      document.getElementById('edit-principal').value = inv.principal;
+      document.getElementById('edit-rate').value = inv.rate;
+      document.getElementById('edit-date1').value = inv.startDate;
+      document.getElementById('edit-date2').value = inv.maturityDate;
+      rateCont.classList.remove('hidden');
+      date1Cont.classList.remove('hidden');
+      date2Cont.classList.remove('hidden');
+    } else if (category === 'lending') {
+      const l = lendings[index];
+      document.getElementById('modalTitle').innerText = "Edit Borrower Account";
+      document.getElementById('edit-name').value = l.person;
+      document.getElementById('edit-principal').value = l.principal;
+      document.getElementById('edit-rate').value = l.monthlyRate;
+      document.getElementById('edit-date1').value = l.startDate;
+      document.getElementById('edit-date2').value = l.endDate;
+      rateCont.classList.remove('hidden');
+      date1Cont.classList.remove('hidden');
+      date2Cont.classList.remove('hidden');
+    } else if (category === 'borrowing') {
+      const b = borrowings[index];
+      document.getElementById('modalTitle').innerText = "Edit Borrowing Record";
+      document.getElementById('edit-name').value = b.person;
+      document.getElementById('edit-principal').value = b.principal;
+      document.getElementById('edit-rate').value = b.monthlyRate;
+      document.getElementById('edit-date1').value = b.startDate;
+      document.getElementById('edit-date2').value = b.endDate;
+      rateCont.classList.remove('hidden');
+      date1Cont.classList.remove('hidden');
+      date2Cont.classList.remove('hidden');
+    } else if (category === 'recurring') {
+      const r = recurrings[index];
+      document.getElementById('modalTitle').innerText = "Edit Recurring Expenditure";
+      document.getElementById('edit-name').value = r.name;
+      document.getElementById('edit-principal').value = r.amount;
+      document.getElementById('edit-freq').value = r.frequency;
+      document.getElementById('edit-status').value = r.status;
+      document.getElementById('edit-date1').value = r.dueDate;
+      document.getElementById('edit-remarks').value = r.remarks;
+      freqCont.classList.remove('hidden');
+      statusCont.classList.remove('hidden');
+      date1Cont.classList.remove('hidden');
+      remarksCont.classList.remove('hidden');
+    }
+
+    document.getElementById('editModal').classList.remove('hidden');
+  }
+
+  function closeModal() {
+    document.getElementById('editModal').classList.add('hidden');
+  }
+
+  function saveModalEdit(e) {
+    e.preventDefault();
+    const category = document.getElementById('edit-category').value;
+    const index = parseInt(document.getElementById('edit-index').value);
+
+    const name = document.getElementById('edit-name').value.trim();
+    const principal = parseFloat(document.getElementById('edit-principal').value);
+    const rate = parseFloat(document.getElementById('edit-rate').value) || 0;
+    const type = document.getElementById('edit-type').value;
+    const freq = document.getElementById('edit-freq').value;
+    const status = document.getElementById('edit-status').value;
+    const date1 = document.getElementById('edit-date1').value;
+    const date2 = document.getElementById('edit-date2').value;
+    const remarks = document.getElementById('edit-remarks').value.trim();
+
+    if (category === 'bank') {
+      banks[index].name = name;
+      banks[index].balance = principal;
+      localStorage.setItem('inr_bank_accounts', JSON.stringify(banks));
+      renderBanks();
+    } else if (category === 'tracker') {
+      transactions[index].description = name;
+      transactions[index].amount = principal;
+      transactions[index].type = type;
+      transactions[index].date = date1;
+      localStorage.setItem('transactions', JSON.stringify(transactions));
+      renderTransactions();
+    } else if (category === 'investment') {
+      investments[index].name = name;
+      investments[index].principal = principal;
+      investments[index].rate = rate;
+      investments[index].startDate = date1;
+      investments[index].maturityDate = date2;
+      renderInvestments();
+    } else if (category === 'lending') {
+      lendings[index].person = name;
+      lendings[index].principal = principal;
+      lendings[index].monthlyRate = rate;
+      lendings[index].startDate = date1;
+      lendings[index].endDate = date2;
+      renderLendings();
+    } else if (category === 'borrowing') {
+      borrowings[index].person = name;
+      borrowings[index].principal = principal;
+      borrowings[index].monthlyRate = rate;
+      borrowings[index].startDate = date1;
+      borrowings[index].endDate = date2;
+      renderBorrowings();
+    } else if (category === 'recurring') {
+      recurrings[index].name = name;
+      recurrings[index].amount = principal;
+      recurrings[index].frequency = freq;
+      recurrings[index].status = status;
+      recurrings[index].dueDate = date1;
+      recurrings[index].remarks = remarks;
+      renderRecurring();
+    }
+
+    closeModal();
+  }
+
+  // --- INITIALIZATION ---
+  window.addEventListener('DOMContentLoaded', () => {
+    checkAuth();
+  });
+</script>
+</body>
+</html>
